@@ -1,2 +1,2 @@
 # ziti-sdk-js
-A JavaScript-based SDK for delivering secure applications over a Ziti Network
+A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network
