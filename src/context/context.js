@@ -1,3 +1,19 @@
+/*
+Copyright 2019-2020 Netfoundry, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 /**
  * Module dependencies.
  */
@@ -286,11 +302,11 @@ ZitiContext.prototype.createNetworkSession = async function(id) {
   return network_session;
 }
 
-ZitiContext.prototype.getGatewayHost = function(network_session) {
-  let item = find(network_session.edgeRouters, function(o) { return has(o, 'urls.wss'); });
+ZitiContext.prototype.getEdgeRouter = function(networkSession) {
+  let item = find(networkSession.edgeRouters, function(o) { return has(o, 'urls.wss'); });
   if (isUndefined(item)) {
     throw new Error(
-      'Specified network_session does not contain a wss-enabled gateway'
+      'Specified networkSession does not contain a wss-enabled Edge Router'
     );
   }
   let hostparts = item.hostname.split(':');
@@ -300,7 +316,7 @@ ZitiContext.prototype.getGatewayHost = function(network_session) {
 }
 
 /**
- * send the HELLO msg to the gateway.
+ * send the HELLO msg to the Edge Router.
  */
 ZitiContext.prototype.sendHello = function() {
 
@@ -390,8 +406,8 @@ ZitiContext.prototype.sendHello = function() {
 }
 
 /**
- * When the 'onopen' event comes in for a websocket, it means that we have successfully connected with the Gateway.
- * The next step is to send the HELLO msg to the gateway.
+ * When the 'onopen' event comes in for a websocket, it means that we have successfully connected with the Edge Router.
+ * The next step is to send the HELLO msg to the Edge Router.
  */
 ZitiContext.prototype.websocket_OnOpen = async function() {
   zitiContext.sendHello();
@@ -413,7 +429,7 @@ ZitiContext.prototype.getZitiEdge = function( network_session, options = {} ) {
 
   let _options = flatOptions(options, defaultOptions);
 
-  this._edge = new ZitiEdge(this.getGatewayHost(network_session), merge(_options, { session_token: this._apiSession.token, network_session_token: network_session.token } ) );
+  this._edge = new ZitiEdge(this.getEdgeRouter(network_session), merge(_options, { session_token: this._apiSession.token, network_session_token: network_session.token } ) );
 
   return this._edge;
 }

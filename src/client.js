@@ -1,3 +1,19 @@
+/*
+Copyright 2019-2020 Netfoundry, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 
 const ZitiContext     = require('./context/context');
 const HttpRequest     = require('./http/request');
@@ -87,8 +103,8 @@ ziti.dial = async ( service, options = {} ) => {
   let network_session = await ziti.context.createNetworkSession(service_id);
   ziti.context.logger.debug('network_session is: ', network_session);
 
-  let gatewayHost = ziti.context.getGatewayHost(network_session);
-  ziti.context.logger.debug('gatewayHost for our networkSession is: ', gatewayHost);
+  let edgeRouterHost = ziti.context.getEdgeRouterHost(network_session);
+  ziti.context.logger.debug('edgeRouterHost for our networkSession is: ', edgeRouterHost);
 
   ziti._edge = ziti.context.getZitiEdge(network_session, options);
 
