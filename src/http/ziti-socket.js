@@ -1,0 +1,238 @@
+/*
+Copyright 2019-2020 Netfoundry, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+const EventEmitter = require('events');
+
+
+class ZitiSocket extends EventEmitter {
+
+    constructor() {
+        super();
+
+        self = this;
+
+        /**
+         * This stream is where we'll put any data returned from a Ziti connection (see ziti_dial.data.call_back)
+         */
+        this.readableZitiStream = new ReadableStream({
+            start(controller) {
+                self.readableZitiStreamController = controller;
+            }
+        });
+          
+
+        /**
+         * The underlying Ziti Connection
+         * @private
+         * @type {string}
+         */
+        this.zitiConnection;
+
+
+        /**
+         * 
+         */
+        this._writable = false;
+    }
+
+
+
+
+    /**
+     * Make a connection to the specified Ziti 'service'.  We do this by invoking the ziti_dial() function in the Ziti NodeJS-SDK.
+     * @param {*} service 
+     */
+    ziti_dial(service) {
+        
+        const self = this;
+        return new Promise((resolve) => {
+            if (self.zitiConnection) {
+                resolve(self.zitiConnection);
+            }
+            else {
+                window.ziti.ziti_dial(
+                    service,
+
+                    false,  // This is NOT a websocket
+
+                    /**
+                     * on_connect callback.
+                     */
+                    (conn) => {
+                        // logger.info('on_connect callback: conn: %s', this.connAsHex(conn))
+                        resolve(conn);
+                    },
+
+                    /**
+                     * on_data callback
+                     */
+                    (data) => {
+                        // logger.info('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
+                        this.readableZitiStreamController.enqueue(data);
+                    },
+                );
+            }
+        });
+    }
+
+    /**
+     * Write data onto the underlying Ziti connection by invoking the ziti_write() function in the Ziti NodeJS-SDK.  The
+     * NodeJS-SDK expects incoming data to be of type Buffer.
+    */
+    ziti_write(conn, buffer) {
+        return new Promise((resolve) => {
+            window.ziti.ziti_write(
+                conn, buffer,
+                () => {
+                    resolve();
+                },
+            );
+        });
+    }
+
+    /**
+     * 
+     */
+    captureResponseData(conn, data) {
+
+        ziti.context.logger.debug("captureResponseData() <----- conn: [%d], data: [%s]", conn.getConnId(), data);
+
+        let zitiSocket = conn.getSocket();
+
+        ziti.context.logger.debug("captureResponseData() <----- zitiSocket: [%o]", zitiSocket);
+
+        zitiSocket.emit('data', data);
+    }
+
+    /**
+     * Connect to a Ziti service.
+     * @param {object} param
+     * @param {string} [param.host] the host to connect to. Default is localhost
+     * @param {number} param.port the port to connect to. Required.
+     * @return {ZitiSocket}
+    */
+    async connect(opts) {
+        // this.zitiConnection = await this.ziti_dial(opts.host).catch((e) => console.log('connect Error: ', e.message)); // eslint-disable-line new-cap
+
+        // this.zitiConnection = await ziti.dial(opts.host);
+        this.zitiConnection = await ziti.dial('tmdb');  // TEMP: we need to examine service config's to determine if we hook or not
+
+        this._writable = true;
+
+        // Prepare to capture response data from the request we are about to launch
+        this.zitiConnection.setDataCallback(this.captureResponseData);
+        this.zitiConnection.setSocket(this);
+
+        this.emit('connect', this.zitiConnection);
+    }
+     
+
+    /**
+     * 
+     */
+    _read() { /* NOP */ }
+
+
+    /**
+     * 
+     */
+    destroy() { /* NOP */ }
+
+
+    /**
+     * Returna a Promise that will resolve _only_ after a Ziti connection has been established for this instance of ZitiSocket.
+     */
+    getZitiConnection() {
+        const self = this;
+        return new Promise((resolve) => {
+            (function waitForConnected() {
+                if (self.zitiConnection) return resolve(self.zitiConnection);
+                setTimeout(waitForConnected, 10);
+            })();
+        });
+    }
+
+    connAsHex(conn) {
+        if (conn < 0) {
+            conn = 0xFFFFFFFF + conn + 1;
+        }
+        return '0x' + conn.toString(16);
+    }
+
+    /**
+     * Implements the writeable stream method `_write` by pushing the data onto the underlying Ziti connection.
+     * It is possible that this function is called before the Ziti connect has completed, so this function will (currently)
+     * await Ziti connection establishment (as opposed to buffering the data).
+    */
+    async write(chunk, encoding, cb) {
+
+        let buffer;
+
+        if (typeof chunk === 'string' || chunk instanceof String) {
+            buffer = Buffer.from(chunk, 'utf8');
+        } else if (Buffer.isBuffer(chunk)) {
+            buffer = chunk;
+        } else {
+            throw new Error('chunk type of [' + typeof chunk + '] is not a supported type');
+        }
+        if (buffer.length > 0) {
+            const conn = await this.getZitiConnection().catch((e) => logger.error('inside ziti-socket.js _write(), Error 1: ', e.message));
+
+            // logger.info('_write: conn: %s, length: %s, data: \n%s', this.connAsHex(conn), buffer.byteLength, buffer.toString());
+
+            // await this.ziti_write(conn, buffer).catch((e) => logger.error('_write(), Error 2: ', e.message));
+
+            // let response = await 
+            ziti._edge.write(conn, buffer);
+
+            // this.emit('data', response);
+
+        }
+        cb();
+    }
+
+    /**
+     *
+     */
+    cork() {
+        this._writable = false;
+    }
+    uncork() {
+        this._writable = true;
+    }
+      
+
+    /**
+     * Implements the writeable stream method `_final` used when .end() is called to write the final data to the stream.
+     */
+    _final(cb) {
+        cb();
+    }
+}
+
+Object.defineProperty(ZitiSocket.prototype, 'writable', {
+    get() {
+      return (
+        this._writable
+      );
+    }
+});
+
+/**
+ * Module exports.
+ */
+
+module.exports = ZitiSocket;

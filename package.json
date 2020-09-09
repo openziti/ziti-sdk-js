@@ -1,0 +1,88 @@
+{
+  "name": "ziti-sdk-js",
+  "version": "0.1.0",
+  "description": "A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "browserify": "browserify src/node/index.js -o dist/ziti.js -s ziti",
+    "build": "npm run build:clean && npm run build:lib && npm run build:dist",
+    "build:clean": "rimraf lib dist",
+    "build:lib": "babel --config-file ./.lib.babelrc src --out-dir lib",
+    "build:dist": "npm run browserify && npm run minify",
+    "minify": "cross-env NODE_ENV=production browserify -o dist/ziti.min.js -s ziti -g [ babelify --configFile ./.dist.babelrc ] -p tinyify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openziti/ziti-sdk-js.git"
+  },
+  "keywords": [
+    "ziti",
+    "js",
+    "javascript",
+    "browser"
+  ],
+  "author": "NetFoundry",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/openziti/ziti-sdk-js/issues"
+  },
+  "homepage": "https://github.com/openziti/ziti-sdk-js#readme",
+  "lint-staged": {
+    "linters": {
+      "*.js": [
+        "xo --fix",
+        "git add"
+      ],
+      "*.md": [
+        "remark . -qfo",
+        "git add"
+      ],
+      "package.json": [
+        "fixpack",
+        "git add"
+      ]
+    }
+  },
+  "browser": {
+    "./src/node/index.js": "./src/client.js",
+    "./lib/node/index.js": "./lib/client.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.11.6",
+    "@babel/core": "^7.11.6",
+    "@babel/plugin-transform-regenerator": "^7.10.4",
+    "@babel/preset-env": "^7.11.5",
+    "babelify": "^10.0.0",
+    "browserify": "^16.5.2",
+    "cross-env": "^7.0.2",
+    "rimraf": "^3.0.2",
+    "tinyify": "^3.0.0"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.11.2",
+    "asn1js": "^2.0.26",
+    "assert": "^2.0.0",
+    "chnl": "^1.2.0",
+    "consola": "^2.15.0",
+    "drag-drop": "^6.0.2",
+    "events": "^3.2.0",
+    "flat-options": "^0.1.3",
+    "format-message": "^6.2.3",
+    "libsodium-wrappers": "^0.7.8",
+    "lodash.find": "^4.6.0",
+    "lodash.foreach": "^4.5.0",
+    "lodash.has": "^4.5.2",
+    "lodash.isequal": "^4.5.0",
+    "lodash.isnull": "^3.0.0",
+    "lodash.isundefined": "^3.0.1",
+    "lodash.merge": "^4.6.2",
+    "lodash.result": "^4.5.2",
+    "lodash.tonumber": "^4.0.3",
+    "micromodal": "^0.4.6",
+    "pkijs": "^2.1.90",
+    "promise-controller": "^1.0.0",
+    "promise.prototype.finally": "^3.1.2",
+    "readable-stream": "^3.6.0",
+    "url": "^0.11.0"
+  }
+}

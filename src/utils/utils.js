@@ -1,0 +1,156 @@
+/**
+ * Return the mime type for the given `str`.
+ *
+ * @param {String} str
+ * @return {String}
+ * @api private
+ */
+
+exports.type = str => str.split(/ *; */).shift();
+
+/**
+ * Return header field parameters.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.params = str =>
+  str.split(/ *; */).reduce((obj, str) => {
+    const parts = str.split(/ *= */);
+    const key = parts.shift();
+    const val = parts.shift();
+
+    if (key && val) obj[key] = val;
+    return obj;
+  }, {});
+
+/**
+ * Parse Link header fields.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.parseLinks = str =>
+  str.split(/ *, */).reduce((obj, str) => {
+    const parts = str.split(/ *; */);
+    const url = parts[0].slice(1, -1);
+    const rel = parts[1].split(/ *= */)[1].slice(1, -1);
+    obj[rel] = url;
+    return obj;
+  }, {});
+
+/**
+ * Strip content related fields from `header`.
+ *
+ * @param {Object} header
+ * @return {Object} header
+ * @api private
+ */
+
+exports.cleanHeader = (header, changesOrigin) => {
+  delete header['content-type'];
+  delete header['content-length'];
+  delete header['transfer-encoding'];
+  delete header.host;
+  // secuirty
+  if (changesOrigin) {
+    delete header.authorization;
+    delete header.cookie;
+  }
+
+  return header;
+};
+
+
+/**
+ * Combine two ArrayBuffers.
+ */
+exports.appendBuffer = (buffer1, buffer2) => {
+  var tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
+  tmp.set(new Uint8Array(buffer1), 0);
+  tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
+  return tmp.buffer;
+};
+
+
+/**
+ * 
+ */
+exports.toUTF8Array = (str) => {
+  var utf8 = [];
+  for (var i=0; i < str.length; i++) {
+      var charcode = str.charCodeAt(i);
+      if (charcode < 0x80) utf8.push(charcode);
+      else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6), 
+                    0x80 | (charcode & 0x3f));
+      }
+      else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12), 
+                    0x80 | ((charcode>>6) & 0x3f), 
+                    0x80 | (charcode & 0x3f));
+      }
+      // surrogate pair
+      else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+                    | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18), 
+                    0x80 | ((charcode>>12) & 0x3f), 
+                    0x80 | ((charcode>>6) & 0x3f), 
+                    0x80 | (charcode & 0x3f));
+      }
+  }
+  return utf8;
+}
+
+
+/**
+ * The base implementation of `sum` and `sumBy`.
+ *
+ * @private
+ * @param {Array} array The array to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {number} Returns the sum.
+ */
+exports.baseSum = (array, iteratee) => {
+  let result
+
+  for (const value of array) {
+    const current = iteratee(value)
+    if (current !== undefined) {
+      result = result === undefined ? current : (result + current)
+    }
+  }
+  return result
+}
+
+/**
+ * This method is like `sum` except that it accepts `iteratee` which is
+ * invoked for each element in `array` to generate the value to be summed.
+ * The iteratee is invoked with one argument: (value).
+ *
+ * @since 4.0.0
+ * @category Math
+ * @param {Array} array The array to iterate over.
+ * @param {Function} iteratee The iteratee invoked per element.
+ * @returns {number} Returns the sum.
+ * @example
+ *
+ * const objects = [{ 'n': 4 }, { 'n': 2 }, { 'n': 8 }, { 'n': 6 }]
+ *
+ * sumBy(objects, ({ n }) => n)
+ * // => 20
+ */
+exports.sumBy = (array, iteratee) => {
+  return (array != null && array.length)
+    ? exports.baseSum(array, iteratee)
+    : 0
+}
