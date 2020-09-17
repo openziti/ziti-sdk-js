@@ -50,7 +50,7 @@ jobs:
     - name: Bump semver and push tag
       uses: TriPSs/conventional-changelog-action@v3
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN_ACTION }}
+        github-token: ${{ secrets.GH_TOKEN_ACTION }}
         git-message: 'chore(release): {version}'
         preset: 'angular'
         tag-prefix: 'v'
