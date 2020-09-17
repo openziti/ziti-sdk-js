@@ -1,3 +1,12 @@
+## [0.2.5](https://github.com/openziti/ziti-sdk-js/compare/v0.2.4...v0.2.5) (2020-09-17)
+
+
+### Bug Fixes
+
+* registry-url ([f0b381c](https://github.com/openziti/ziti-sdk-js/commit/f0b381c3430f23492c47502dfa8bf813a287bc5a))
+
+
+
 ## [0.2.4](https://github.com/openziti/ziti-sdk-js/compare/v0.2.3...v0.2.4) (2020-09-17)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * testing CI npm publishing ([8445864](https://github.com/openziti/ziti-sdk-js/commit/8445864000f2cf9acdb617afd59123cea075882b))
-
-
-
-# [0.2.0](https://github.com/openziti/ziti-sdk-js/compare/v0.1.1...v0.2.0) (2020-09-17)
-
-
-### Features
-
-* add npm publishing ([1566c34](https://github.com/openziti/ziti-sdk-js/commit/1566c348f986a23711ccd0b6c833d50470cd267e))
 
 
 
