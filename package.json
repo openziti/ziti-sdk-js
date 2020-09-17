@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"Warning: no test exists yet\" ",
     "browserify": "browserify src/node/index.js -o dist/ziti.js -s ziti",
     "build": "npm run build:clean && npm run build:lib && npm run build:dist",
     "build:clean": "rimraf lib dist",

@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 
-const serviceTypes = require('./serviceTypes');
+const serviceTypes = require('./servicetypes');
 const LogLevel    = require('../logLevels');
 
 /**
