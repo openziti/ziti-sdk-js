@@ -45,6 +45,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_TOKEN_ACTION }}
     - name: Bump semver and push tag
       uses: TriPSs/conventional-changelog-action@v3
       with:
