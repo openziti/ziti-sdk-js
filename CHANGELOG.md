@@ -1,3 +1,12 @@
+## [0.2.1](https://github.com/openziti/ziti-sdk-js/compare/v0.2.0...v0.2.1) (2020-09-17)
+
+
+### Bug Fixes
+
+* testing CI npm publishing ([8445864](https://github.com/openziti/ziti-sdk-js/commit/8445864000f2cf9acdb617afd59123cea075882b))
+
+
+
 # [0.2.0](https://github.com/openziti/ziti-sdk-js/compare/v0.1.1...v0.2.0) (2020-09-17)
 
 
