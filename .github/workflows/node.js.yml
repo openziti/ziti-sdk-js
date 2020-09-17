@@ -47,8 +47,8 @@ jobs:
     - uses: actions/checkout@v2
       with:
         token: ${{ secrets.GH_TOKEN_ACTION }}
-    - name: Bump version and push tag
-      uses: TriPSs/conventional-changelog-action@master
+    - name: Bump semver and push tag
+      uses: TriPSs/conventional-changelog-action@v3
       with:
         github-token: ${{ secrets.GITHUB_TOKEN_ACTION }}
         git-message: 'chore(release): {version}'
