@@ -15,9 +15,33 @@ on:
 jobs:
 
   # -------------------------------------------------------------------------------
-  #  Do a clean build and test
+  #  Bump the semver and update CHANGELOG when doing merges to master
+  # -------------------------------------------------------------------------------
+  bump_semver:
+
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_ACTION }}
+    - name: Bump semver and push tag
+      uses: TriPSs/conventional-changelog-action@v3
+      with:
+        github-token: ${{ secrets.GH_ACTION }}
+        git-message: 'chore(release): {version}'
+        preset: 'angular'
+        tag-prefix: 'v'
+        output-file: 'CHANGELOG.md'
+
+  # -------------------------------------------------------------------------------
+  #  Do a clean build, test, and publish
   # -------------------------------------------------------------------------------
   build_and_test:
+
+    # don't run this job until the semver bump has happened
+    needs: bump_semver
 
     runs-on: ubuntu-latest
 
@@ -35,23 +59,3 @@ jobs:
     - run: npm run build
     - run: npm test
 
-  # -------------------------------------------------------------------------------
-  #  Bump te semver and update CHANGELOG when doing merges to master
-  # -------------------------------------------------------------------------------
-  bump_semver:
-
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        token: ${{ secrets.GH_TOKEN_ACTION }}
-    - name: Bump semver and push tag
-      uses: TriPSs/conventional-changelog-action@v3
-      with:
-        github-token: ${{ secrets.GH_TOKEN_ACTION }}
-        git-message: 'chore(release): {version}'
-        preset: 'angular'
-        tag-prefix: 'v'
-        output-file: 'CHANGELOG.md'
