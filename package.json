@@ -43,7 +43,10 @@
       ]
     }
   },
-  "browser": "./dist/ziti.js",
+  "browser": {
+    "./dist/ziti.js": "./dist/ziti.js",
+    "./src/node/index.js": "./src/client.js"
+  },
   "devDependencies": {
     "@babel/cli": "^7.11.6",
     "@babel/core": "^7.11.6",
