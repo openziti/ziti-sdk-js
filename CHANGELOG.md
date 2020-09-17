@@ -1,3 +1,12 @@
+## [0.2.3](https://github.com/openziti/ziti-sdk-js/compare/v0.2.2...v0.2.3) (2020-09-17)
+
+
+### Bug Fixes
+
+* npmrc ([ccfdefc](https://github.com/openziti/ziti-sdk-js/commit/ccfdefce72c7424febe182468acff2295ba97f95))
+
+
+
 ## [0.2.2](https://github.com/openziti/ziti-sdk-js/compare/v0.2.1...v0.2.2) (2020-09-17)
 
 
