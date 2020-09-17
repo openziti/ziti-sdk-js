@@ -1,4 +1,13 @@
-## 0.1.1 (2020-09-17)
+# [0.2.0](https://github.com/openziti/ziti-sdk-js/compare/v0.1.1...v0.2.0) (2020-09-17)
+
+
+### Features
+
+* add npm publishing ([1566c34](https://github.com/openziti/ziti-sdk-js/commit/1566c348f986a23711ccd0b6c833d50470cd267e))
+
+
+
+## [0.1.1](https://github.com/openziti/ziti-sdk-js/compare/45cd8702f7ba55153ec71123085b7de38cb826fb...v0.1.1) (2020-09-17)
 
 
 ### Bug Fixes
