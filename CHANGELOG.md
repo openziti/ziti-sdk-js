@@ -1,3 +1,12 @@
+## [0.2.6](https://github.com/openziti/ziti-sdk-js/compare/v0.2.5...v0.2.6) (2020-09-17)
+
+
+### Bug Fixes
+
+* browser field test ([407d8b3](https://github.com/openziti/ziti-sdk-js/commit/407d8b3e8630cfd7e9af89fedb972a7607126d2c))
+
+
+
 ## [0.2.5](https://github.com/openziti/ziti-sdk-js/compare/v0.2.4...v0.2.5) (2020-09-17)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * testing CI npm publishing ([904ec91](https://github.com/openziti/ziti-sdk-js/commit/904ec91637c826b1759aa72df5f41d7a7aa973cc))
-
-
-
-## [0.2.1](https://github.com/openziti/ziti-sdk-js/compare/v0.2.0...v0.2.1) (2020-09-17)
-
-
-### Bug Fixes
-
-* testing CI npm publishing ([8445864](https://github.com/openziti/ziti-sdk-js/commit/8445864000f2cf9acdb617afd59123cea075882b))
 
 
 
