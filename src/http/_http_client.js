@@ -47,6 +47,8 @@ const {
 // options object as expected by the http.request API.
 function urlToOptions(url) {
   const options = {
+    serviceName: url.serviceName,
+    conn: url.conn,
     protocol: url.protocol,
     hostname: typeof url.hostname === 'string' && url.hostname.startsWith('[') ?
       url.hostname.slice(1, -1) :

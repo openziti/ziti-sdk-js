@@ -119,16 +119,17 @@ class ZitiSocket extends EventEmitter {
 
     /**
      * Connect to a Ziti service.
-     * @param {object} param
-     * @param {string} [param.host] the host to connect to. Default is localhost
-     * @param {number} param.port the port to connect to. Required.
-     * @return {ZitiSocket}
     */
     async connect(opts) {
-        // this.zitiConnection = await this.ziti_dial(opts.host).catch((e) => console.log('connect Error: ', e.message)); // eslint-disable-line new-cap
 
-        // this.zitiConnection = await ziti.dial(opts.host);
-        this.zitiConnection = await ziti.dial('tmdb');  // TEMP: we need to examine service config's to determine if we hook or not
+        if (typeof opts.conn == 'object') {
+            this.zitiConnection = opts.conn;
+        }
+        else if (typeof opts.serviceName == 'string') {
+            this.zitiConnection = await ziti.dial(opts.serviceName);
+        } else {
+            throw new Error('no serviceName or conn was provided');
+        }
 
         this._writable = true;
 

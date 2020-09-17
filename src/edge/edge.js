@@ -82,6 +82,15 @@ class ZitiEdge {
 
   }
 
+  /**
+   * Has this Edge already completed the 'hello' sequence?
+   *
+   * @returns {Boolean}
+   */
+  get isHelloCompleted() {
+    return Boolean(this._helloCompleted);
+  }
+
 
   _createHelloController() {
     const helloTimeout = this._options.helloTimeout || this._options.timeout;
@@ -115,10 +124,8 @@ class ZitiEdge {
    */
   sendMessage(contentType, headers, body, options = {}) {
     const timeout = options.timeout !== undefined ? options.timeout : this._options.timeout;
-    ziti.context.logger.debug("send -----> options.sequence: [%o]", options.sequence);
     const messageId = options.sequence || this._sequence;
-    ziti.context.logger.debug("send -----> contentType: [%o], seq: [%o], body: [%s]", contentType, messageId, (body ? body.toString() : ''));
-
+    ziti.context.logger.debug("send -----> conn: [%o] sequence: [%o] contentType: [%o] body: [%s]", (options.conn ? options.conn.getConnId() : 'n/a'), messageId, contentType, (body ? body.toString() : ''));
 
     return this._messages.create(messageId, () => {
       this._sendMarshaled(contentType, headers, body, options, messageId);
@@ -137,9 +144,8 @@ class ZitiEdge {
    */
   sendMessageNoWait(contentType, headers, body, options = {}) {
     const timeout = options.timeout !== undefined ? options.timeout : this._options.timeout;
-    ziti.context.logger.debug("send -----> options.sequence: [%o]", options.sequence);
     const messageId = options.sequence || this._sequence;
-    ziti.context.logger.debug("send -----> contentType: [%o], seq: [%o], body: [%s]", contentType, messageId, (body ? body.toString() : ''));
+    ziti.context.logger.debug("send -----> conn: [%o] sequence: [%o] contentType: [%o] body: [%s]", (options.conn ? options.conn.getConnId() : 'n/a'), messageId, contentType, (body ? body.toString() : ''));
 
     this._sendMarshaled(contentType, headers, body, options, messageId);
   }
@@ -416,13 +422,27 @@ class ZitiEdge {
 
 
   /**
+   * Receives response from Edge 'Hello' message.
+   * 
+   */
+  async _recvHelloResponse(msg) {
+    this._helloCompleted = true;
+    ziti.context.logger.debug('response received: edge_protocol.content_type.HelloType');
+  }
+
+
+  /**
    * Do Hello handshake with Edge Router. 
    *
    * @returns {Promise}
    */
   hello() {
 
-    ziti.context.logger.debug('hello() entered');
+    if (this.isHelloCompleted) {
+      return this._helloing.promise;
+    }
+
+    ziti.context.logger.debug('initiating message: edge_protocol.content_type.HelloType');
 
     let headers = [
       new Header( edge_protocol.header_id.SessionToken, { 
@@ -431,7 +451,10 @@ class ZitiEdge {
         })
     ]; 
 
-    return this.sendMessage( edge_protocol.content_type.HelloType, headers, null, { sequence: -1 } );
+    return this.sendMessage( edge_protocol.content_type.HelloType, headers, null, { 
+      sequence: -1,
+      listener: this._recvHelloResponse,
+    } );
   }
 
 
@@ -483,8 +506,8 @@ class ZitiEdge {
 
       ziti.context.logger.debug('connect() about to send Connect to edge router');
 
-      self.sendMessage( edge_protocol.content_type.Connect, headers, self._options.network_session_token, 
-        { 
+      self.sendMessage( edge_protocol.content_type.Connect, headers, self._options.network_session_token, { 
+          conn: conn,
           sequence: sequence,
           listener: self._recvConnectResponse,
         } 
@@ -1011,7 +1034,7 @@ class ZitiEdge {
    */
   async _establish_crypto(conn, msg) {
 
-    ziti.context.logger.debug("_establish_crypto(): entered for conn_id[%d]", conn.getConnId());
+    ziti.context.logger.debug("_establish_crypto(): entered for conn[%d]", conn.getConnId());
 
     let result = await this._messageGetBytesHeader(msg, edge_protocol.header_id.PublicKey);
     let peerKey = result.data;
@@ -1046,9 +1069,9 @@ class ZitiEdge {
   async _recvCryptoResponse(msg) {
 
     let connId = await this._messageGetConnId(msg);
-    ziti.context.logger.debug("_recvCryptoResponse(): entered for conn_id[%d]", connId);
+    ziti.context.logger.debug("_recvCryptoResponse(): entered for conn[%d]", connId);
     let conn = this._connections._getConnection(connId);
-    throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking connId { actual }', { actual: connId}) );
+    throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking conn { actual }', { actual: connId}) );
 
     //
     let buffer = await msg.arrayBuffer();
@@ -1073,7 +1096,7 @@ class ZitiEdge {
    */
   async _send_crypto_header(conn) {
 
-    ziti.context.logger.debug("_send_crypto_header(): entered for conn_id[%d]", conn.getConnId());
+    ziti.context.logger.debug("_send_crypto_header(): entered for conn[%d]", conn.getConnId());
 
     let results = sodium.crypto_secretstream_xchacha20poly1305_init_push( conn.getSharedTx() );
 
@@ -1099,6 +1122,7 @@ class ZitiEdge {
 
     let p = this.sendMessage( edge_protocol.content_type.Data, headers, conn.getCrypt_o().header,
       {
+        conn: conn,
         sequence: sequence,
         listener: this._recvCryptoResponse,
       }
@@ -1130,13 +1154,13 @@ class ZitiEdge {
     switch (contentType) {
 
       case edge_protocol.content_type.StateClosed:
-        ziti.context.logger.debug("_recvConnectResponse(): edge conn_id[%d] failed to connect", connId);
+        ziti.context.logger.debug("_recvConnectResponse(): edge conn[%d] failed to connect", connId);
         conn.setState(edge_protocol.conn_state.Closed);
         break;
 
       case edge_protocol.content_type.StateConnected:
         if (conn.getState() == edge_protocol.conn_state.Connecting) {
-          ziti.context.logger.debug("_recvConnectResponse(): edge conn_id[%d] connected", connId);
+          ziti.context.logger.debug("_recvConnectResponse(): edge conn[%d] connected", connId);
 
           await this._establish_crypto(conn, msg);
           ziti.context.logger.debug("_recvConnectResponse(): _establish_crypto completed");
@@ -1155,7 +1179,7 @@ class ZitiEdge {
         break;
 
       default:
-        ziti.context.logger.error("_recvConnectResponse(): unexpected content_type[%d] conn_id[%d]", contentType, connId);
+        ziti.context.logger.error("_recvConnectResponse(): unexpected content_type[%d] conn[%d]", contentType, connId);
         // ziti_disconnect(conn);
     }
 

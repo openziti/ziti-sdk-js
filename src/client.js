@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 
+const isUndefined     = require('lodash.isundefined');
 const ZitiContext     = require('./context/context');
 const HttpRequest     = require('./http/request');
 const HttpResponse    = require('./http/response');
@@ -22,6 +23,9 @@ const http            = require('./http/http');
 const { PassThrough } = require('readable-stream')
 const LogLevel        = require('./logLevels');
 const pjson           = require('../package.json');
+
+
+window.realFetch      = window.fetch;
 
 /**
  * 
@@ -76,10 +80,7 @@ ziti.init = async (options) => {
 
   await ziti.context.init(options);
 
-  ziti.context.logger.success('JS SDK version %s starting', pjson.version);
-
-  let controllerVersion = ziti.context.getControllerVersion();
-  ziti.context.logger.debug('controllerVersion is: ', controllerVersion);
+  ziti.context.logger.success('JS SDK version %s init completed', pjson.version);
 
   return ziti.context;
 };
@@ -95,16 +96,13 @@ ziti.init = async (options) => {
  */
 ziti.dial = async ( service, options = {} ) => {
 
-  ziti.context.logger.debug('ziti.dial() entered');
+  ziti.context.logger.debug('ziti.dial() entered for service [%s]', service);
 
   let service_id = await ziti.context.getServiceIdByName(service);
   ziti.context.logger.debug('ID of service is: ', service_id);
 
   let network_session = await ziti.context.createNetworkSession(service_id);
   ziti.context.logger.debug('network_session is: ', network_session);
-
-  let edgeRouterHost = ziti.context.getEdgeRouterHost(network_session);
-  ziti.context.logger.debug('edgeRouterHost for our networkSession is: ', edgeRouterHost);
 
   ziti._edge = ziti.context.getZitiEdge(network_session, options);
 
@@ -210,3 +208,87 @@ ziti.fetch = async ( conn, url, opts ) => {
 
 }
 
+
+/**
+ * Intercept all 'fetch' requests and route them over Ziti if the target host:port matches an active Ziti Service Config
+ *
+ * @param {String} url
+ * @param {Object} opts
+ * @return {Promise}
+ * @api public
+ */
+fetch = async ( url, opts ) => {
+
+  if (isUndefined(ziti.context)) {  // If we have no context, do not intercept
+    console.warn('fetch(): no Ziti Context established yet; bypassing intercept of [' + url + ']');
+    return window.realFetch(url, opts);
+  }
+
+  if (url.indexOf(ziti.context.getZtAPI()) !== -1) {  // If target is controller, do not intercept
+    ziti.context.logger.debug('fetch(): target is Ziti controller; bypassing intercept of [%s]', url);
+    return window.realFetch(url, opts);
+  }
+
+  let serviceName = ziti.context.shouldRouteOverZiti(url);
+
+  if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
+    ziti.context.logger.debug('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+    return window.realFetch(url, opts);
+  }
+
+  /**
+   * ------------ Now Routing over Ziti -----------------
+   */
+  ziti.context.logger.debug('fetch(): serviceConfig match; intercepting [%s]', url);
+
+  let conn = await ziti.dial(serviceName);
+
+	return new Promise( async (resolve, reject) => {
+
+    // build HTTP request object
+    let request = new HttpRequest(serviceName, url, opts);
+    const options = await request.getRequestOptions();
+
+    let req;
+
+    if (options.method === 'GET') {
+
+      req = http.get(options);
+
+    } else {
+
+      req = http.request(options);
+
+      req.end();
+    }
+
+    
+
+    req.on('error', err => {
+			log.error('error EVENT: err: %o', err);
+			reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));
+			finalize();
+		});
+
+		req.on('response', async res => {
+      let body = res.pipe(new PassThrough());
+      const response_options = {
+				url: request.url,
+				status: res.statusCode,
+				statusText: res.statusMessage,
+				headers: res.headers,
+				size: request.size,
+				timeout: request.timeout,
+				counter: request.counter
+			};
+      let response = new HttpResponse(body, response_options);
+      resolve(response);
+    });
+
+
+  });
+
+}
+
+
+window.fetch = fetch;

@@ -69,6 +69,8 @@ module.exports = class ZitiConnection {
   }
 
   getAndIncrementSequence() {
+    // this._edgeMsgSeq++;
+    // return this._edgeMsgSeq;
     return this._edgeMsgSeq++;
   }
   

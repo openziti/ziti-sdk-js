@@ -78,6 +78,8 @@ ZitiAgent.prototype.addRequest = function(req, host, port, localAddress) {
 
     // create the `ZitiSocket` instance
     const info = {
+        serviceName: opts.serviceName,
+        conn: opts.conn,
         host: opts.hostname || opts.host,
         port: Number(opts.port) || this.defaultPort,
         localAddress: opts.localAddress,

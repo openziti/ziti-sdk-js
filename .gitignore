@@ -1,11 +1,11 @@
 build
 coverage.html
 .DS_Store
+.VSCodeCounter/
 node_modules
 *.sock
 test.js
 .idea
-package-lock.json
 *.log
 coverage
 .nyc_output

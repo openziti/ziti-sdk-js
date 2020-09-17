@@ -93,8 +93,18 @@ module.exports = HttpRequest;
  *
  * @api public
  */
+function HttpRequest(serviceNameOrConn, input, init = {}) {
 
-function HttpRequest(conn, input, init = {}) {
+	let serviceName;
+	let conn;
+
+	if (typeof serviceNameOrConn == 'object') {
+		conn = serviceNameOrConn;
+	} else if (typeof serviceNameOrConn == 'string') {
+		serviceName = serviceNameOrConn;
+	} else {
+		throw new Error('first paramater is unsupported type');
+	}
 
 	if (!isRequest(input)) {
 		if (input && input.href) {
@@ -140,6 +150,7 @@ function HttpRequest(conn, input, init = {}) {
 	}
 
 	this[INTERNALS] = {
+		serviceName,
 		conn,
 		method,
 		redirect: init.redirect || input.redirect || 'follow',
@@ -169,6 +180,10 @@ function mixin(obj) {
   return obj;
 }
 
+
+HttpRequest.prototype.getServiceName = function() {
+	return this[INTERNALS].serviceName;
+}
 
 HttpRequest.prototype.getConn = function() {
 	return this[INTERNALS].conn;
@@ -257,6 +272,7 @@ HttpRequest.prototype.getRequestOptions = function() {
 	}
 
 	return Object.assign({}, parsedURL, {
+		serviceName: this.getServiceName(),
 		conn: this.getConn(),
 		method: this.getMethod(),
 		headers: headers,

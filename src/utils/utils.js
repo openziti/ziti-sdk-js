@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+const isEqual = require('lodash.isequal');
+
 /**
  * Return the mime type for the given `str`.
  *
@@ -169,4 +171,43 @@ exports.sumBy = (array, iteratee) => {
   return (array != null && array.length)
     ? exports.baseSum(array, iteratee)
     : 0
+}
+
+
+/**
+ * Parse a URL.
+ *
+ * @param   Mixed   url
+ * @return  Object
+ */
+exports.parseURL = (url) => {
+  var parser = document.createElement('a'),
+      searchObject = {},
+  queries, split, i;
+  
+  // Let the browser do the work
+  parser.href = url;
+
+  // Convert query string to object
+  queries = parser.search.replace(/^\?/, '').split('&');
+  for( i = 0; i < queries.length; i++ ) {
+      split = queries[i].split('=');
+      searchObject[split[0]] = split[1];
+  }
+
+  let port = parser.port;
+  if (isEqual(port, '')) {
+    port = isEqual(parser.protocol, 'http:') ? 80 : 443;
+  }
+
+  return {
+      protocol: parser.protocol,
+      host: parser.host,
+      hostname: parser.hostname,
+      port: port,
+      pathname: parser.pathname,
+      search: parser.search,
+      searchObject: searchObject,
+      hash: parser.hash
+  };
 }

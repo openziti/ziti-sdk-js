@@ -39,6 +39,7 @@ const identityModalSelect = require('../ui/identity_modal/select');
 const identityModalDragDrop = require('../ui/identity_modal/dragdrop');
 const zitiConstants = require('../constants');
 const ZitiReporter = require('../utils/ziti-reporter');
+const ZitiControllerClient = require('./controller-client');
 
 
 /**
@@ -155,6 +156,7 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
  * - validate options
  * - create logger
  * - load the Ziti Identity
+ * - create Controller client
  * - get Controller version
  * - establish an API session with Controller
  * - fetch list of active services from Controller
@@ -181,32 +183,47 @@ ZitiContext.prototype.init = async function(options) {
     this.logger.error(err);
     throw err;
   });
+  this.logger.debug('Controller URL from loaded Identity: [%o]', this._ztAPI);
+
 
   this._network_sessions = new Map();
   this._connections = new Map();
   this._edges = new Map();
   this._connSeq = 0;
 
+  this._controllerClient = new ZitiControllerClient({
+    domain: this._ztAPI,
+    logger: this.logger
+  });
+
   try {
 
-    let res = await fetch(`${this._ztAPI}/version`);
-    let json = await res.json();
-    this._controllerVersion = json.data.version;
+    // Get Controller version info
+    let res = await this._controllerClient.listVersion();
+    this._controllerVersion = res.data;
+    this.logger.debug('Controller Version: [%o]', this._controllerVersion);
 
-    res = await fetch(`${this._ztAPI}/authenticate?method=cert`, { 
-      method: 'post', 
-      headers: { 
-        'Content-Type': 'application/json'
-      }, 
-      body: JSON.stringify({  })
+    // Get an API session with Controller
+    res = await this._controllerClient.authenticate({
+      method: 'cert',
+      body: { 
+        configTypes: [
+          'ziti-tunneler-client.v1'
+        ]
+       }
     });
+    this._apiSession = res.data;
+    this.logger.debug('Controller API Session established: [%o]', this._apiSession);
 
-    json = await res.json();
-    this._apiSession = json.data;
+    // Set the token header on behalf of all subsequent Controller API calls
+    this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
 
-    res = await fetch(`${this._ztAPI}/services?limit=100`, { headers: { 'zt-session': this._apiSession.token }} );
-    json = await res.json();
-    this._services = json.data;
+    // Get list of active Services from Controller
+    res = await this._controllerClient.listServices({
+      limit: '100'
+    });
+    this._services = res.data;
+    this.logger.debug('List of available Services acquired: [%o]', this._services);
 
     this._sequence = 0;
 
@@ -214,6 +231,47 @@ ZitiContext.prototype.init = async function(options) {
     this.logger.error(err);
   }
 
+}
+
+
+ZitiContext.prototype.getServiceNameByHostNameAndPort = function(hostname, port) {
+  let serviceName = result(find(this._services, function(obj) {
+    let config = obj.config['ziti-tunneler-client.v1'];
+    if (isUndefined(config)) {
+      return false;
+    }
+    if (config.hostname !== hostname) {
+      return false;
+    }
+    if (config.port !== port) {
+      return false;
+    }
+    return true;
+  }), 'name');
+  return serviceName;
+}
+
+
+/**
+ * Determine if the given URL should be routed over Ziti.
+ * 
+ * @returns {bool}
+ */
+ZitiContext.prototype.shouldRouteOverZiti = function(url) {
+
+  let parsedURL = utils.parseURL(url);
+
+  return this.getServiceNameByHostNameAndPort(parsedURL.hostname, parsedURL.port);
+}
+
+
+/**
+ * Return current value of the ztAPI
+ *
+ * @returns {undefined | string}
+ */
+ZitiContext.prototype.getZtAPI = function() {
+  return this._ztAPI;
 }
 
 
@@ -427,9 +485,13 @@ ZitiContext.prototype.getWebsocket = function() {
 
 ZitiContext.prototype.getZitiEdge = function( network_session, options = {} ) {
 
-  let _options = flatOptions(options, defaultOptions);
+  if (isUndefined(this._edge)) {
 
-  this._edge = new ZitiEdge(this.getEdgeRouter(network_session), merge(_options, { session_token: this._apiSession.token, network_session_token: network_session.token } ) );
+    let _options = flatOptions(options, defaultOptions);
+
+    this._edge = new ZitiEdge(this.getEdgeRouter(network_session), merge(_options, { session_token: this._apiSession.token, network_session_token: network_session.token } ) );
+  
+  }
 
   return this._edge;
 }
