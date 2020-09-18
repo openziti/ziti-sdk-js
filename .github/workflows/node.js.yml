@@ -57,41 +57,39 @@ jobs:
         node-version: [14.x]
 
     steps:
-      if: github.ref == 'refs/heads/master'
-      - name: BUMP_SEMVER
-        with:
-          token: ${{ secrets.GH_ACTION }}
       - name: Bump semver and push tag
         uses: TriPSs/conventional-changelog-action@v3
-        with:
-          github-token: ${{ secrets.GH_ACTION }}
-          git-message: 'chore(release): {version}'
-          preset: 'angular'
-          tag-prefix: 'v'
-          output-file: 'CHANGELOG.md'
+          with:
+            github-token: ${{ secrets.GH_ACTION }}
+            git-message: 'chore(release): {version}'
+            preset: 'angular'
+            tag-prefix: 'v'
+            output-file: 'CHANGELOG.md'
+          if: github.ref == 'refs/heads/master'
 
     steps:
-    - name: BUILD
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
-      - run: git pull
-      - name: Use Node.js ${{ matrix.node-version }}
-        # Setup .npmrc file to prepare for possible publish to npm
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm run build
+      - name: BUILD
+        uses: actions/checkout@v2
+          with:
+            fetch-depth: 2
+        - run: git pull
+        - name: Use Node.js ${{ matrix.node-version }}
+          # Setup .npmrc file to prepare for possible publish to npm
+          uses: actions/setup-node@v1
+          with:
+            node-version: ${{ matrix.node-version }}
+            registry-url: 'https://registry.npmjs.org'
+        - run: npm ci
+        - run: npm run build
 
     steps:
-    - name: TEST
-      - run: npm test
+      - name: TEST
+        - run: npm test
 
     steps:
-      if: github.ref == 'refs/heads/master'
       - name: PUBLISH
+        uses: actions/checkout@v2
+          if: github.ref == 'refs/heads/master'
         - run: npm install
         - run: npm publish --access public
           env:
