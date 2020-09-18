@@ -57,6 +57,12 @@ jobs:
         node-version: [14.x]
 
     steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_ACTION }}
+
     - name: Bump semver
       if: github.ref == 'refs/heads/master'
       uses: TriPSs/conventional-changelog-action@v3
@@ -69,9 +75,6 @@ jobs:
 
     - name: Pull newly bumped semver
       if: github.ref == 'refs/heads/master'
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
       run: git pull
 
     - name: Setup .npmrc
@@ -82,15 +85,15 @@ jobs:
         node-version: ${{ matrix.node-version }}
         registry-url: 'https://registry.npmjs.org'
 
-    - name: Build and Test
-      uses: actions/checkout@v2
+    - name: Build
       run: npm ci
       run: npm run build
+
+    - name: Test
       run: npm test
 
     - name: Publish
       if: github.ref == 'refs/heads/master'
-      uses: actions/checkout@v2
       run: npm install
       run: npm publish --access public
       env:
