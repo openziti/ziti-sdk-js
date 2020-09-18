@@ -57,7 +57,7 @@ jobs:
         node-version: [14.x]
 
     steps:
-    - if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/master'
       - name: BUMP_SEMVER
         with:
           token: ${{ secrets.GH_ACTION }}
@@ -90,7 +90,7 @@ jobs:
       - run: npm test
 
     steps:
-    - if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/master'
       - name: PUBLISH
         - run: npm install
         - run: npm publish --access public
