@@ -20,12 +20,14 @@ const ZitiContext     = require('./context/context');
 const HttpRequest     = require('./http/request');
 const HttpResponse    = require('./http/response');
 const http            = require('./http/http');
+const ZitiXMLHttpRequest = require('./http/ziti-xhr');
 const { PassThrough } = require('readable-stream')
 const LogLevel        = require('./logLevels');
 const pjson           = require('../package.json');
 
 
 window.realFetch      = window.fetch;
+window.realXMLHttpRequest = window.XMLHttpRequest;
 
 /**
  * 
@@ -292,3 +294,4 @@ fetch = async ( url, opts ) => {
 
 
 window.fetch = fetch;
+window.XMLHttpRequest = ZitiXMLHttpRequest;

@@ -669,7 +669,7 @@ const fatalExceptionStackEnhancers = {
       // Set the error.stack here so it gets picked up by the
       // inspector.
       error.stack = error[kEnhanceStackBeforeInspector]();
-    } catch {
+    } catch (e) {
       // We are just enhancing the error. If it fails, ignore it.
     }
     return error.stack;
@@ -708,7 +708,7 @@ const fatalExceptionStackEnhancers = {
         customInspect: false,
         depth: Math.max(inspect.defaultOptions.depth, 5)
       });
-    } catch {
+    } catch (e) {
       return originalStack;
     }
   }
