@@ -69,9 +69,7 @@ jobs:
 
     - name: Build
       uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
-      - run: git pull
+    - run: git pull
 
     - name: Use Node.js ${{ matrix.node-version }}
       # Setup .npmrc file to prepare for possible publish to npm
@@ -79,12 +77,12 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm run build
+    - run: npm ci
+    - run: npm run build
 
     - name: Test
       uses: actions/checkout@v2
-      - run: npm test
+    - run: npm test
 
     # steps:
     #   - name: Publish
