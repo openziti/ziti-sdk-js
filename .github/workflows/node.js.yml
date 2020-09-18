@@ -60,25 +60,25 @@ jobs:
       - name: Bump semver
         if: github.ref == 'refs/heads/master'
         uses: TriPSs/conventional-changelog-action@v3
-          with:
-            github-token: ${{ secrets.GH_ACTION }}
-            git-message: 'chore(release): {version}'
-            preset: 'angular'
-            tag-prefix: 'v'
-            output-file: 'CHANGELOG.md'
+        with:
+          github-token: ${{ secrets.GH_ACTION }}
+          git-message: 'chore(release): {version}'
+          preset: 'angular'
+          tag-prefix: 'v'
+          output-file: 'CHANGELOG.md'
 
     steps:
       - name: Build
         uses: actions/checkout@v2
-          with:
-            fetch-depth: 2
+        with:
+          fetch-depth: 2
         - run: git pull
         - name: Use Node.js ${{ matrix.node-version }}
           # Setup .npmrc file to prepare for possible publish to npm
           uses: actions/setup-node@v1
-            with:
-              node-version: ${{ matrix.node-version }}
-              registry-url: 'https://registry.npmjs.org'
+          with:
+            node-version: ${{ matrix.node-version }}
+            registry-url: 'https://registry.npmjs.org'
         - run: npm ci
         - run: npm run build
 
