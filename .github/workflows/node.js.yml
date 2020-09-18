@@ -70,8 +70,6 @@ jobs:
     steps:
       - name: Build
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
         - run: git pull
         - name: Use Node.js ${{ matrix.node-version }}
           # Setup .npmrc file to prepare for possible publish to npm
