@@ -67,11 +67,9 @@ jobs:
         tag-prefix: 'v'
         output-file: 'CHANGELOG.md'
 
-    - name: Pull new semver
+    - name: Pull newly bumped semver
       if: github.ref == 'refs/heads/master'
       uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
       - run: git pull
 
     - name: Setup .npmrc
