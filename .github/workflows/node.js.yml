@@ -23,31 +23,32 @@ jobs:
   # -------------------------------------------------------------------------------
   #  Bump the semver and update CHANGELOG when doing merges to master
   # -------------------------------------------------------------------------------
-  bump_semver:
+  # bump_semver:
 
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/master'
 
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        token: ${{ secrets.GH_ACTION }}
-    - name: Bump semver and push tag
-      uses: TriPSs/conventional-changelog-action@v3
-      with:
-        github-token: ${{ secrets.GH_ACTION }}
-        git-message: 'chore(release): {version}'
-        preset: 'angular'
-        tag-prefix: 'v'
-        output-file: 'CHANGELOG.md'
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #     with:
+  #       token: ${{ secrets.GH_ACTION }}
+  #   - name: Bump semver and push tag
+  #     uses: TriPSs/conventional-changelog-action@v3
+  #     with:
+  #       github-token: ${{ secrets.GH_ACTION }}
+  #       git-message: 'chore(release): {version}'
+  #       preset: 'angular'
+  #       tag-prefix: 'v'
+  #       output-file: 'CHANGELOG.md'
 
   # -------------------------------------------------------------------------------
   #  Do a clean build, test, and publish
   # -------------------------------------------------------------------------------
-  build_and_test:
+  build:
 
     # don't run this job until the semver bump has happened
-    needs: bump_semver
+    # if: github.ref == 'refs/heads/master'
+      # needs: bump_semver
 
     runs-on: ubuntu-latest
 
@@ -56,20 +57,43 @@ jobs:
         node-version: [14.x]
 
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
-    - run: git pull
-    - name: Use Node.js ${{ matrix.node-version }}
-      # Setup .npmrc file to publish to npm
-      uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node-version }}
-        registry-url: 'https://registry.npmjs.org'
-    - run: npm ci
-    - run: npm run build
-    - run: npm test
-    - run: npm install
-    - run: npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - if: github.ref == 'refs/heads/master'
+      - name: BUMP_SEMVER
+        with:
+          token: ${{ secrets.GH_ACTION }}
+      - name: Bump semver and push tag
+        uses: TriPSs/conventional-changelog-action@v3
+        with:
+          github-token: ${{ secrets.GH_ACTION }}
+          git-message: 'chore(release): {version}'
+          preset: 'angular'
+          tag-prefix: 'v'
+          output-file: 'CHANGELOG.md'
+
+    steps:
+    - name: BUILD
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - run: git pull
+      - name: Use Node.js ${{ matrix.node-version }}
+        # Setup .npmrc file to prepare for possible publish to npm
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run build
+
+    steps:
+    - name: TEST
+      - run: npm test
+
+    steps:
+    - if: github.ref == 'refs/heads/master'
+      - name: PUBLISH
+        - run: npm install
+        - run: npm publish --access public
+          env:
+            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
