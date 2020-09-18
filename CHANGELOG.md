@@ -1,3 +1,12 @@
+# [0.3.0](https://github.com/openziti/ziti-sdk-js/compare/v0.2.7...v0.3.0) (2020-09-18)
+
+
+### Features
+
+* add xhr intercept ([#6](https://github.com/openziti/ziti-sdk-js/issues/6)) ([3f0cb48](https://github.com/openziti/ziti-sdk-js/commit/3f0cb484e2538d4529fe69a24e3fc9bcf3f074c0))
+
+
+
 ## [0.2.7](https://github.com/openziti/ziti-sdk-js/compare/v0.2.6...v0.2.7) (2020-09-17)
 
 
@@ -32,15 +41,6 @@
 ### Bug Fixes
 
 * npmrc ([e5956f5](https://github.com/openziti/ziti-sdk-js/commit/e5956f50615b99c61106e1cc5220a09eb5794c2c))
-
-
-
-## [0.2.3](https://github.com/openziti/ziti-sdk-js/compare/v0.2.2...v0.2.3) (2020-09-17)
-
-
-### Bug Fixes
-
-* npmrc ([ccfdefc](https://github.com/openziti/ziti-sdk-js/commit/ccfdefce72c7424febe182468acff2295ba97f95))
 
 
 
