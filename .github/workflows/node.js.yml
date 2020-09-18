@@ -69,7 +69,7 @@ jobs:
 
     steps:
       - name: Build
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
         with:
           fetch-depth: 2
       - run: git pull
@@ -84,15 +84,15 @@ jobs:
 
     steps:
       - name: Test
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
       - run: npm test
 
-    steps:
-      - name: Publish
-        if: github.ref == 'refs/heads/master'
-      - uses: actions/checkout@v2
-      - run: npm install
-      - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    # steps:
+    #   - name: Publish
+    #     if: github.ref == 'refs/heads/master'
+    #     uses: actions/checkout@v2
+    #   - run: npm install
+    #   - run: npm publish --access public
+    #     env:
+    #       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
