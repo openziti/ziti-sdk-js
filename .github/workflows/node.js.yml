@@ -67,25 +67,23 @@ jobs:
           tag-prefix: 'v'
           output-file: 'CHANGELOG.md'
 
-    steps:
       - name: Build
         uses: actions/checkout@v2
         with:
           fetch-depth: 2
-      - run: git pull
-      - name: Use Node.js ${{ matrix.node-version }}
-        # Setup .npmrc file to prepare for possible publish to npm
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm run build
+        - run: git pull
+        - name: Use Node.js ${{ matrix.node-version }}
+          # Setup .npmrc file to prepare for possible publish to npm
+          uses: actions/setup-node@v1
+          with:
+            node-version: ${{ matrix.node-version }}
+            registry-url: 'https://registry.npmjs.org'
+        - run: npm ci
+        - run: npm run build
 
-    steps:
       - name: Test
         uses: actions/checkout@v2
-      - run: npm test
+        - run: npm test
 
     # steps:
     #   - name: Publish
