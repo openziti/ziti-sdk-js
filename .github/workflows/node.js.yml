@@ -84,13 +84,13 @@ jobs:
 
     steps:
       - name: Test
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - run: npm test
 
     steps:
       - name: Publish
         if: github.ref == 'refs/heads/master'
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - run: npm install
       - run: npm publish --access public
         env:
