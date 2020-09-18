@@ -57,7 +57,8 @@ jobs:
         node-version: [14.x]
 
     steps:
-      - name: Bump semver and push tag
+      - name: Bump semver
+        if: github.ref == 'refs/heads/master'
         uses: TriPSs/conventional-changelog-action@v3
           with:
             github-token: ${{ secrets.GH_ACTION }}
@@ -65,10 +66,9 @@ jobs:
             preset: 'angular'
             tag-prefix: 'v'
             output-file: 'CHANGELOG.md'
-          if: github.ref == 'refs/heads/master'
 
     steps:
-      - name: BUILD
+      - name: Build
         uses: actions/checkout@v2
           with:
             fetch-depth: 2
@@ -76,20 +76,21 @@ jobs:
         - name: Use Node.js ${{ matrix.node-version }}
           # Setup .npmrc file to prepare for possible publish to npm
           uses: actions/setup-node@v1
-          with:
-            node-version: ${{ matrix.node-version }}
-            registry-url: 'https://registry.npmjs.org'
+            with:
+              node-version: ${{ matrix.node-version }}
+              registry-url: 'https://registry.npmjs.org'
         - run: npm ci
         - run: npm run build
 
     steps:
-      - name: TEST
+      - name: Test
+        uses: actions/checkout@v2
         - run: npm test
 
     steps:
-      - name: PUBLISH
+      - name: Publish
+        if: github.ref == 'refs/heads/master'
         uses: actions/checkout@v2
-          if: github.ref == 'refs/heads/master'
         - run: npm install
         - run: npm publish --access public
           env:
