@@ -85,8 +85,10 @@ jobs:
         node-version: ${{ matrix.node-version }}
         registry-url: 'https://registry.npmjs.org'
 
-    - name: Build
+    - name: Install
       run: npm ci
+
+    - name: Build
       run: npm run build
 
     - name: Test
@@ -94,7 +96,6 @@ jobs:
 
     - name: Publish
       if: github.ref == 'refs/heads/master'
-      run: npm install
       run: npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
