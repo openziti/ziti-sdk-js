@@ -20,10 +20,11 @@ limitations under the License.
 
 const flatOptions = require('flat-options');
 
-const defaultOptions = require('./options');
+const defaultOptions = require('./connection-options');
 const edge_protocol = require('./protocol');
 const zitiConstants = require('../constants');
-
+const Messages = require('./messages');
+const ZitiWebSocket = require('../websocket/websocket');
 
 
 /**
@@ -39,22 +40,35 @@ module.exports = class ZitiConnection {
 
     this._options = flatOptions(options, defaultOptions);
 
-    this._ctx = ziti.context;
+    this._ctx = this._options.ctx;
 
     this._data = this._options.data;
 
     this._state = edge_protocol.conn_state.Initial;
 
-    this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
+    this._timeout = this._ctx.getTimeout();
 
     this._edgeMsgSeq = 0;
 
-    this._connId = ziti.context.getNextConnectionId();
+    this._id = this._ctx.getNextConnectionId();
 
+    this._messages = new Messages({ ctx: this._ctx, conn: this });
+
+    // this._zws = new ZitiWebSocket('wss://' + this._options.edge._edgeRouterHost + '/wss', {} );
+    // this._zws.onMessage.addListener(this._options.edge._recvFromWire, this._options.edge);
+
+  }
+
+  getCtx() {
+    return this._ctx;
   }
 
   getData() {
     return this._data;
+  }
+
+  getMessages() {
+    return this._messages;
   }
 
   getState() {
@@ -64,13 +78,11 @@ module.exports = class ZitiConnection {
     this._state = state;
   }
 
-  getConnId() {
-    return this._connId;
+  getId() {
+    return this._id;
   }
 
   getAndIncrementSequence() {
-    // this._edgeMsgSeq++;
-    // return this._edgeMsgSeq;
     return this._edgeMsgSeq++;
   }
   
@@ -88,6 +100,12 @@ module.exports = class ZitiConnection {
     this._dataCallback = fn;
   }
 
+  getChannel() {
+    return this._channel;
+  }
+  setChannel(channel) {
+    this._channel = channel;
+  }
 
   getEncrypted() {
     return this._encrypted;

@@ -16,7 +16,9 @@ limitations under the License.
 
 
 const isUndefined     = require('lodash.isundefined');
+const isEqual = require('lodash.isequal');
 const ZitiContext     = require('./context/context');
+const ZitiConnection  = require('./channel/connection');
 const HttpRequest     = require('./http/request');
 const HttpResponse    = require('./http/response');
 const http            = require('./http/http');
@@ -24,6 +26,15 @@ const ZitiXMLHttpRequest = require('./http/ziti-xhr');
 const { PassThrough } = require('readable-stream')
 const LogLevel        = require('./logLevels');
 const pjson           = require('../package.json');
+const {throwIf}       = require('./utils/throwif');
+const formatMessage = require('format-message');
+
+
+formatMessage.setup({
+  locale: 'es-ES', // what locale strings should be displayed
+  missingReplacement: '!!NOT TRANSLATED!!', // use this when a translation is missing instead of the default message
+  missingTranslation: 'ignore', // don't console.warn or throw an error when a translation is missing
+})
 
 
 window.realFetch      = window.fetch;
@@ -71,65 +82,66 @@ function Ziti() {}
 /**
  * Initialize.
  *
-* @param {Options} [options]
+ * @param {Options} [options]
  * @return {ZitiContext}
  * @api public
  */
 
 ziti.init = async (options) => {
 
-  ziti.context = new ZitiContext(ZitiContext.prototype);
+  let ctx = new ZitiContext(ZitiContext.prototype);
 
-  await ziti.context.init(options);
+  await ctx.init(options);
 
-  ziti.context.logger.success('JS SDK version %s init completed', pjson.version);
+  ctx.logger.success('JS SDK version %s init completed', pjson.version);
 
-  return ziti.context;
+  ziti._ctx = ctx;
+
+  return ctx;
 };
 
 
 /**
+ * Initialize.
+ *
+ * @param {ZitiContext} ctx
+ * @param {*} data
+ * @return {ZitiConection}
+ * @api public
+ */
+
+ziti.newConnection = (ctx, data) => {
+  return new ZitiConnection({ 
+    ctx: ctx,
+    data: data
+  });
+};
+
+/**
  * Dial the `service`.
  *
+ * @param {ZitiConnection} conn
  * @param {String} service
  * @param {Object} [options]
  * @return {Conn}
  * @api public
  */
-ziti.dial = async ( service, options = {} ) => {
+ziti.dial = async ( conn, service, options = {} ) => {
 
-  ziti.context.logger.debug('ziti.dial() entered for service [%s]', service);
+  let ctx = conn.getCtx();
+  throwIf(isUndefined(ctx), formatMessage('Connection has no context.', { }) );
 
-  let service_id = await ziti.context.getServiceIdByName(service);
-  ziti.context.logger.debug('ID of service is: ', service_id);
+  ctx.logger.debug('dial: conn [%d] service [%s]', conn.getId(), service);
 
-  let network_session = await ziti.context.createNetworkSession(service_id);
-  ziti.context.logger.debug('network_session is: ', network_session);
+  if (isEqual( ctx.getServices().size, 0 )) {
+    await ctx.fetchServices();
+  }
 
-  ziti._edge = ziti.context.getZitiEdge(network_session, options);
+  let service_id = await ctx.getServiceIdByName(service);
 
-  ziti.context.logger.debug('ziti._edge is: ', ziti._edge);
+  let network_session = await ctx.getNetworkSessionByServiceId(service_id);
 
-  // Open websocket to Edge Router
-  await ziti._edge.open();
-
-  ziti.context.logger.debug('websocket to Edge Router is now open');
-
-  // Perform Hello handshake with Edge Router
-  await ziti._edge.hello();         
-
-  ziti.context.logger.debug('Hello handshake with Edge Router is now complete');
-
-  // Perform connect with Edge Router (creates Fabric session)
-  let conn = await ziti._edge.connect();
-
-  await ziti._edge.awaitConnectionCryptoEstablishComplete(conn).catch((e) => {
-    ziti.context.logger.error('awaitConnectionCryptoEstablishComplete(), Error: ', e.message)
-  });
-
-  ziti.context.logger.debug('Crypto-enabled Connection with Edge Router is now complete');
-
-  return conn;
+  await ctx.connect(conn, network_session);
 };
 
 
@@ -221,29 +233,27 @@ ziti.fetch = async ( conn, url, opts ) => {
  */
 fetch = async ( url, opts ) => {
 
-  if (isUndefined(ziti.context)) {  // If we have no context, do not intercept
+  if (isUndefined(ziti._ctx)) {  // If we have no context, do not intercept
     console.warn('fetch(): no Ziti Context established yet; bypassing intercept of [' + url + ']');
     return window.realFetch(url, opts);
   }
 
-  if (url.indexOf(ziti.context.getZtAPI()) !== -1) {  // If target is controller, do not intercept
-    ziti.context.logger.debug('fetch(): target is Ziti controller; bypassing intercept of [%s]', url);
+  if (url.indexOf(ziti._ctx.getZtAPI()) !== -1) {  // If target is controller, do not intercept
+    ziti._ctx.logger.trace('fetch(): target is Ziti controller; bypassing intercept of [%s]', url);
     return window.realFetch(url, opts);
   }
 
-  let serviceName = ziti.context.shouldRouteOverZiti(url);
+  let serviceName = await ziti._ctx.shouldRouteOverZiti(url);
 
   if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
-    ziti.context.logger.debug('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+    ziti._ctx.logger.debug('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
     return window.realFetch(url, opts);
   }
 
   /**
    * ------------ Now Routing over Ziti -----------------
    */
-  ziti.context.logger.debug('fetch(): serviceConfig match; intercepting [%s]', url);
-
-  let conn = await ziti.dial(serviceName);
+  ziti._ctx.logger.debug('fetch(): serviceConfig match; intercepting [%s]', url);
 
 	return new Promise( async (resolve, reject) => {
 

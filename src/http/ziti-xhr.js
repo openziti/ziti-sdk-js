@@ -227,15 +227,19 @@ function ZitiXMLHttpRequest () {
       return "";
     }
 
-    const headers = response.headers.raw();
+    let headers;
+    
+    if (typeof self.response === "Response") {
+      headers = self.response.headers.entries();
+    } else if (typeof self.response === "HttpResponse") {
+      headers = self.response.headers().entries();
+    }
 
     var result = "";
 
     for (var header in headers) {
-      if (header !== "set-cookie" && header !== "set-cookie2") {
-        var headerValue = headers[header][0];
-        result += header + ": " + headerValue + "\r\n";
-      }
+      var headerValue = headers[header][0];
+      result += header + ": " + headerValue + "\r\n";
     }
   
     return result.substr(0, result.length - 2);
@@ -280,12 +284,13 @@ function ZitiXMLHttpRequest () {
 
     settings.body = data;
 
-    var resp = await fetch(settings.url, settings);
+    self.response = await fetch(settings.url, settings);
 
-    self.status = resp.status;
+    self.status = self.response.status;
 
-    resp.blob().then(async function(blob) {
+    self.response.blob().then(async function(blob) {
       self.responseBodyText = await blob.text();
+      self.responseText = self.responseBodyText;
       sendFlag = false;
       setState(self.DONE);
     });

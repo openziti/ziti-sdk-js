@@ -28,8 +28,6 @@ const extractContentType = Body.extractContentType;
 
 const INTERNALS = Symbol('Response internals');
 
-// fix an issue where "STATUS_CODES" aren't a named export for node <10
-// const STATUS_CODES = http.STATUS_CODES;
 
 
 /**
@@ -85,24 +83,31 @@ function mixin(obj) {
       obj[key] = HttpResponse.prototype[key];
   }
 
+  Object.defineProperty(obj, 'url', {
+	get: function() {
+		return this[INTERNALS].url || '';
+	}
+  });
+
+  Object.defineProperty(obj, 'status', {
+	get: function() {
+		return this[INTERNALS].status;
+	}
+  });
+
+  Object.defineProperty(obj, 'ok', {
+	get: function() {
+		return this[INTERNALS].status >= 200 && this[INTERNALS].status < 300;
+	}
+  });
+
+  Object.defineProperty(obj, 'headers', {
+	get: function() {
+		return this[INTERNALS].headers;
+	}
+  });
+
   return obj;
-}
-
-
-HttpResponse.prototype.url = async function() {
-	return this[INTERNALS].url || '';
-}
-
-HttpResponse.prototype.status = async function() {
-	return this[INTERNALS].status;
-}
-
-HttpResponse.prototype.ok = async function() {
-	return this[INTERNALS].status >= 200 && this[INTERNALS].status < 300;
-}
-
-HttpResponse.prototype.headers = async function() {
-	return this[INTERNALS].headers;
 }
 
 Body.mixIn(HttpResponse.prototype);

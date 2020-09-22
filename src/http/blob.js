@@ -84,10 +84,10 @@ function Blob() {
  */
 
 function mixin(obj) {
-	for (const key in HttpRequest.prototype) {
-	  if (Object.prototype.hasOwnProperty.call(HttpRequest.prototype, key))
-		obj[key] = HttpRequest.prototype[key];
-	}
+	// for (const key in HttpRequest.prototype) {
+	//   if (Object.prototype.hasOwnProperty.call(HttpRequest.prototype, key))
+	// 	obj[key] = HttpRequest.prototype[key];
+	// }
   
 	return obj;
 }

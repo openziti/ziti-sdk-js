@@ -108,11 +108,11 @@ class ZitiSocket extends EventEmitter {
      */
     captureResponseData(conn, data) {
 
-        ziti.context.logger.debug("captureResponseData() <----- conn: [%d], data: [%s]", conn.getConnId(), data);
+        conn.getCtx().logger.debug("captureResponseData() <- conn: [%d], data: [%s]", conn.getId(), data);
 
         let zitiSocket = conn.getSocket();
 
-        ziti.context.logger.debug("captureResponseData() <----- zitiSocket: [%o]", zitiSocket);
+        conn.getCtx().logger.debug("captureResponseData() <- zitiSocket: [%o]", zitiSocket);
 
         zitiSocket.emit('data', data);
     }
@@ -126,7 +126,8 @@ class ZitiSocket extends EventEmitter {
             this.zitiConnection = opts.conn;
         }
         else if (typeof opts.serviceName == 'string') {
-            this.zitiConnection = await ziti.dial(opts.serviceName);
+            this.zitiConnection = ziti.newConnection(ziti._ctx);
+            await ziti.dial(this.zitiConnection, opts.serviceName);
         } else {
             throw new Error('no serviceName or conn was provided');
         }
@@ -192,12 +193,14 @@ class ZitiSocket extends EventEmitter {
         if (buffer.length > 0) {
             const conn = await this.getZitiConnection().catch((e) => logger.error('inside ziti-socket.js _write(), Error 1: ', e.message));
 
+            let ch = conn.getChannel();
+
             // logger.info('_write: conn: %s, length: %s, data: \n%s', this.connAsHex(conn), buffer.byteLength, buffer.toString());
 
             // await this.ziti_write(conn, buffer).catch((e) => logger.error('_write(), Error 2: ', e.message));
 
             // let response = await 
-            ziti._edge.write(conn, buffer);
+            ch.write(conn, buffer);
 
             // this.emit('data', response);
 

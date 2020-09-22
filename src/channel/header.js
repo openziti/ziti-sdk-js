@@ -18,14 +18,15 @@ limitations under the License.
  * Module dependencies.
  */
 
-const flatOptions = require('flat-options');
-const utils = require('../utils/utils');
-const defaultOptions = require('./options');
-const {throwIf} = require('../utils/throwif');
-const formatMessage = require('format-message');
-const edge_protocol = require('./protocol');
-const isNull = require('lodash.isnull');
-const isEqual = require('lodash.isequal');
+const formatMessage   = require('format-message');
+const flatOptions     = require('flat-options');
+const isNull          = require('lodash.isnull');
+const isEqual         = require('lodash.isequal');
+
+const utils           = require('../utils/utils');
+const defaultOptions  = require('./header-options');
+const {throwIf}       = require('../utils/throwif');
+const edge_protocol   = require('./protocol');
 
 
 formatMessage.setup({
