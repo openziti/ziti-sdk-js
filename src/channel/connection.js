@@ -18,12 +18,11 @@ limitations under the License.
  * Module dependencies.
  */
 
-const flatOptions = require('flat-options');
+const flatOptions     = require('flat-options');
 
-const defaultOptions = require('./options');
-const edge_protocol = require('./protocol');
-const zitiConstants = require('../constants');
-
+const defaultOptions  = require('./connection-options');
+const edge_protocol   = require('./protocol');
+const Messages        = require('./messages');
 
 
 /**
@@ -39,22 +38,32 @@ module.exports = class ZitiConnection {
 
     this._options = flatOptions(options, defaultOptions);
 
-    this._ctx = ziti.context;
+    this._ctx = this._options.ctx;
 
     this._data = this._options.data;
 
     this._state = edge_protocol.conn_state.Initial;
 
-    this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
+    this._timeout = this._ctx.getTimeout();
 
     this._edgeMsgSeq = 0;
 
-    this._connId = ziti.context.getNextConnectionId();
+    this._id = this._ctx.getNextConnectionId();
 
+    this._messages = new Messages({ ctx: this._ctx, conn: this });
+
+  }
+
+  getCtx() {
+    return this._ctx;
   }
 
   getData() {
     return this._data;
+  }
+
+  getMessages() {
+    return this._messages;
   }
 
   getState() {
@@ -64,16 +73,13 @@ module.exports = class ZitiConnection {
     this._state = state;
   }
 
-  getConnId() {
-    return this._connId;
+  getId() {
+    return this._id;
   }
 
   getAndIncrementSequence() {
-    // this._edgeMsgSeq++;
-    // return this._edgeMsgSeq;
     return this._edgeMsgSeq++;
   }
-  
 
   getSocket() {
     return this._socket;
@@ -88,6 +94,12 @@ module.exports = class ZitiConnection {
     this._dataCallback = fn;
   }
 
+  getChannel() {
+    return this._channel;
+  }
+  setChannel(channel) {
+    this._channel = channel;
+  }
 
   getEncrypted() {
     return this._encrypted;
@@ -109,7 +121,6 @@ module.exports = class ZitiConnection {
   setKeypair(keypair) {
     this._keypair = keypair;
   }
-
 
   getSharedRx() {
     return this._sharedRx;

@@ -25,8 +25,11 @@ const isNull = require('lodash.isnull');
 
 
 module.exports = class Messages {
-  constructor() {
+  constructor(options) {
     this._items = new Map();
+    this._ctx = options.ctx;
+    this._conn = options.conn;
+    this._channel = options.channel;
   }
 
   /**
@@ -38,14 +41,15 @@ module.exports = class Messages {
    * @returns {Promise}
    */
   create(messageId, fn, timeout) {
+    this._ctx.logger.debug("messages.create(): conn[%d] messageId[%o]", (this._conn ? this._conn.getId() : 'n/a'), messageId);
     this._rejectExistingMessage(messageId);
     return this._createNewMessage(messageId, fn, timeout);
   }
 
   resolve(messageId, data) {
-    ziti.context.logger.debug("messages.resolve(): messageId: [%o]", messageId);
+    this._ctx.logger.debug("messages.resolve(): conn[%d] messageId[%o] data[%o]", (this._conn ? this._conn.getId() : 'n/a'), messageId, data);
     if (!isNull(messageId) && this._items.has(messageId)) {
-      ziti.context.logger.debug("messages.resolve(): messageId: [%o] FOUND.", messageId);
+      this._ctx.logger.debug("messages.resolve(): messageId: [%o] FOUND.", messageId);
       this._items.get(messageId).resolve(data);
     }
   }

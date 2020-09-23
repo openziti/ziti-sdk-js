@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-const Blob = require('./blob.js');
+const Blob = require('./blob');
 
 const Stream = require('readable-stream');
 
 const BUFFER = Blob.BUFFER;
+// const BUFFER = Symbol('buffer');
 
 // import FormData from './form-data';
 
@@ -133,15 +134,16 @@ HttpBody.prototype.json = function() {
  *
  * @return Promise
  */
-HttpBody.prototype.blob = function() {
-	let ct = this.headers && this.headers.get('content-type') || '';
+HttpBody.prototype.blob = async function() {
+	// let hdrs = await this.headers();
+	let hdrs = this.headers;
+	let ct = hdrs && hdrs.get('content-type') || '';
 	return consumeBody.call(this).then(buf => Object.assign(
 		// Prevent copying
-		new Blob([], {
+		new Blob([buf], {
 			type: ct.toLowerCase()
 		}),
 		{
-			[BUFFER]: buf
 		}
 	));
 }
@@ -184,7 +186,7 @@ HttpBody.prototype.buffer = function() {
  * @return  Promise
  */
 HttpBody.prototype.textConverted = function() {
-	return consumeBody.call(this).then(buffer => convertBody(buffer, this.headers));
+	return consumeBody.call(this).then(buffer => convertBody(buffer, this.headers()));
 }
 
 

@@ -15,32 +15,22 @@ limitations under the License.
 */
 
 /**
- * Class for manage pending messages.
- * @private
+ * Default options.
  */
 
-const PromiseController = require('promise-controller');
-const promiseFinally = require('promise.prototype.finally');
+const LogLevel    = require('../logLevels');
 
-module.exports = class ZitiConnections {
-  constructor() {
-    this._items = new Map();
-  }
 
-  _saveConnection(conn) {
-    this._items.set(conn.getConnId(), conn);
-  }
+module.exports = {
+  
+    /**
+     * See {@link Options.headerType}
+     */
+    headerType: null,
 
-  _deleteConnection(conn) {
-      this._items.delete(conn.getConnId());
-  }
+    /**
+     * See {@link Options.headerData}
+     */
+    headerData: null,
 
-  _getConnection(connId) {
-    if (this._items.has(connId)) {
-      return this._items.get(connId);
-    } else {
-      return undefined;
-    }
-  }
-
-};
+  };

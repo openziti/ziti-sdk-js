@@ -18,28 +18,33 @@ limitations under the License.
  * Module dependencies.
  */
 
-const flatOptions = require('flat-options');
-const MicroModal = require('micromodal');
-const consola = require('consola');
-const find = require('lodash.find');
-const isUndefined = require('lodash.isundefined');
-const merge = require('lodash.merge');
-const result = require('lodash.result');
-const has = require('lodash.has');
-const toNumber = require('lodash.tonumber');
+const flatOptions           = require('flat-options');
+const MicroModal            = require('micromodal');
+const consola               = require('consola');
+const find                  = require('lodash.find');
+const filter                = require('lodash.filter');
+const isEqual               = require('lodash.isequal');
+const minby                 = require('lodash.minby');
+const forEach               = require('lodash.foreach');
+const isUndefined           = require('lodash.isundefined');
+const merge                 = require('lodash.merge');
+const result                = require('lodash.result');
+const has                   = require('lodash.has');
+const toNumber              = require('lodash.tonumber');
+const Mutex                 = require('async-mutex');
 
-const utils = require('../utils/utils');
-const ls = require('../utils/localstorage');
-const edge_protocol = require('../edge/protocol');
-const ZitiEdge = require('../edge/edge');
-const defaultOptions = require('./options');
-const identityModalCSS = require('../ui/identity_modal/css');
-const identityModalHTML = require('../ui/identity_modal/html');
-const identityModalSelect = require('../ui/identity_modal/select');
+const utils                 = require('../utils/utils');
+const ls                    = require('../utils/localstorage');
+const edge_protocol         = require('../channel/protocol');
+const defaultOptions        = require('./options');
+const identityModalCSS      = require('../ui/identity_modal/css');
+const identityModalHTML     = require('../ui/identity_modal/html');
+const identityModalSelect   = require('../ui/identity_modal/select');
 const identityModalDragDrop = require('../ui/identity_modal/dragdrop');
-const zitiConstants = require('../constants');
-const ZitiReporter = require('../utils/ziti-reporter');
-const ZitiControllerClient = require('./controller-client');
+const zitiConstants         = require('../constants');
+const ZitiReporter          = require('../utils/ziti-reporter');
+const ZitiControllerClient  = require('./controller-client');
+const ZitiChannel           = require('../channel/channel');
 
 
 /**
@@ -185,11 +190,15 @@ ZitiContext.prototype.init = async function(options) {
   });
   this.logger.debug('Controller URL from loaded Identity: [%o]', this._ztAPI);
 
+  this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
   this._network_sessions = new Map();
-  this._connections = new Map();
-  this._edges = new Map();
+  this._services = new Map();
+  this._channels = new Map();
+  this._channelSeq = 0;
   this._connSeq = 0;
+
+  this._mutex = new Mutex.Mutex();
 
   this._controllerClient = new ZitiControllerClient({
     domain: this._ztAPI,
@@ -218,13 +227,6 @@ ZitiContext.prototype.init = async function(options) {
     // Set the token header on behalf of all subsequent Controller API calls
     this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
 
-    // Get list of active Services from Controller
-    res = await this._controllerClient.listServices({
-      limit: '100'
-    });
-    this._services = res.data;
-    this.logger.debug('List of available Services acquired: [%o]', this._services);
-
     this._sequence = 0;
 
   } catch (err) {
@@ -234,7 +236,22 @@ ZitiContext.prototype.init = async function(options) {
 }
 
 
-ZitiContext.prototype.getServiceNameByHostNameAndPort = function(hostname, port) {
+ZitiContext.prototype.fetchServices = async function() {
+  // Get list of active Services from Controller
+  res = await this._controllerClient.listServices({ limit: '100' });
+  this._services = res.data;
+  this.logger.debug('List of available Services acquired: [%o]', this._services);  
+}
+
+
+ZitiContext.prototype.getServiceNameByHostNameAndPort = async function(hostname, port) {
+
+  const release = await this._mutex.acquire();
+  if (isEqual( this.getServices().size, 0 )) {
+    await this.fetchServices();
+  }
+  release();
+
   let serviceName = result(find(this._services, function(obj) {
     let config = obj.config['ziti-tunneler-client.v1'];
     if (isUndefined(config)) {
@@ -253,15 +270,69 @@ ZitiContext.prototype.getServiceNameByHostNameAndPort = function(hostname, port)
 
 
 /**
+ * Connect specified ZitiConnection to the nearest Edge Router.
+ * 
+ * @param {ZitiConnection} conn
+ * @param {ZitiConnection} networkSession
+ * @returns {bool}
+ */
+ZitiContext.prototype.connect = async function(conn, networkSession) {
+
+  conn.token = networkSession.token;
+
+  // Get list of all Edge Router URLs where the Edge Router has a WSS binding
+  let edgeRouters = filter(networkSession.edgeRouters, function(o) { return has(o, 'urls.wss'); });
+
+  let pendingChannelConnects = new Array();
+
+  let self = this;
+
+  // Get a channel connection to each of the Edge Routers that have a WSS binding, initiating a connection if channel is not yet connected
+  forEach(edgeRouters, function(edgeRouter) {
+    let ch = self.getChannelByEdgeRouter(conn, edgeRouter.hostname);
+    self.logger.debug('initiating Hello to [%s] for session[%s]', edgeRouter.urls.wss, conn.token);  
+    pendingChannelConnects.push( 
+      ch.hello() 
+    );
+  });
+  let channelConnects = await Promise.all( pendingChannelConnects );
+
+  // Select channel with nearest Edge Router. Heuristic: select one with earliest Hello-handshake completion timestamp
+  let channelConnectWithNearestEdgeRouter = minby(channelConnects, function(channelConnect) { 
+    return channelConnect.channel.helloCompletedTimestamp;
+  });
+  let channelWithNearestEdgeRouter = channelConnectWithNearestEdgeRouter.channel;
+  this.logger.debug('Channel [%d] has nearest Edge Router', channelWithNearestEdgeRouter.getId());
+  channelWithNearestEdgeRouter._connections._saveConnection(conn);
+  conn.setChannel(channelWithNearestEdgeRouter);
+
+  // Initiate connection with Edge Router (creates Fabric session)
+  await channelWithNearestEdgeRouter.connect(conn);
+
+  // Do not proceed until crypto handshake has completed
+  await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+
+}
+
+
+ZitiContext.prototype._getChannelForConnId = function(id) {
+  let ch = find(this._channels, function(ch) {
+    return (!isUndefined( ch._connections._getConnection(id) ));
+  });
+  return ch;
+}
+
+
+/**
  * Determine if the given URL should be routed over Ziti.
  * 
  * @returns {bool}
  */
-ZitiContext.prototype.shouldRouteOverZiti = function(url) {
+ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
 
   let parsedURL = utils.parseURL(url);
 
-  return this.getServiceNameByHostNameAndPort(parsedURL.hostname, parsedURL.port);
+  return await this.getServiceNameByHostNameAndPort(parsedURL.hostname, parsedURL.port);
 }
 
 
@@ -272,6 +343,22 @@ ZitiContext.prototype.shouldRouteOverZiti = function(url) {
  */
 ZitiContext.prototype.getZtAPI = function() {
   return this._ztAPI;
+}
+
+
+/**
+ * Return current value of the ztAPI
+ *
+ * @returns {undefined | string}
+ */
+ZitiContext.prototype.getTimeout = function() {
+  return this._timeout;
+}
+
+
+ZitiContext.prototype.getNextChannelId = function() {
+  this._channelSeq++;
+  return this._channelSeq;
 }
 
 
@@ -297,7 +384,45 @@ ZitiContext.prototype.getServiceIdByName = function(name) {
   let service_id = result(find(this._services, function(obj) {
     return obj.name === name;
   }), 'id');
+  this.logger.debug('service[%s] has id[%s]', name, service_id);
   return service_id;
+}
+
+ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouterHostName) {
+
+  let ch = this._channels.get(edgeRouterHostName);
+
+  if (!isUndefined(ch)) {
+
+    this.logger.debug('channel [%d] state [%d] found for ingress[%s]', ch.getId(), ch.getState(), edgeRouterHostName);
+
+    if (isEqual( ch.getState(), edge_protocol.conn_state.Connected )) {
+      // nop
+    }
+    else if (isEqual( ch.getState(), edge_protocol.conn_state.Initial ) || isEqual( ch.getState(), edge_protocol.conn_state.Connecting )) {
+      this.logger.warn('should we be here? channel [%d] has state [%d]', ch.getId(), ch.getState());
+    }
+    else {
+      this.logger.error('should not be here: channel [%d] has state [%d]', ch.getId(), ch.getState());
+    }
+
+    return ch;
+  }
+ 
+  // Create a Channel for this Edge Router
+  ch = new ZitiChannel({ 
+    ctx: this,
+    edgeRouterHost: edgeRouterHostName,
+    session_token: this._apiSession.token,
+    network_session_token: conn.token
+  });
+
+  ch.setState(edge_protocol.conn_state.Connecting);
+
+  this.logger.debug('Created channel [%o] ', ch);
+  this._channels.set(edgeRouterHostName, ch);
+  
+  return ch;
 }
 
 ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {
@@ -308,191 +433,28 @@ ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {
 }
 
 ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
-
   // if we do NOT have a NetworkSession for this serviceId, create it
-  if (typeof this._network_sessions != 'Map') {
-    this._network_sessions = new Map();
-  }
   if (!this._network_sessions.has(serviceID)) { 
     let network_session = await this.createNetworkSession(serviceID);
-    console.log('Created network_session: ', network_session.id);
+    this.logger.debug('Created network_session [%o] ', network_session);
     this._network_sessions.set(serviceID, network_session);
   }
   return this._network_sessions.get(serviceID);
 }
 
-ZitiContext.prototype.getEdgeByNetworkSession = async function(serviceID, network_session) {
-
-  // if we do NOT have an Edge for this network_session, create it
-  if (typeof this._edges != 'Map') {
-    this._edges = new Map();
-  }
-  if (!this._edges.has(network_session.id)) { 
-    let edge = this.getZitiEdge(network_session);
-    console.log('Created Edge: ', edge);
-    this._edges.set(network_session.id, edge);
-
-    // Open websocket to Edge Router
-    await edge.open();
-  
-    // Perform Hello handshake with Edge Router
-    await edge.hello();         
-
-    // Perform connect with Edge Router (creates Fabric session)
-    let conn = await edge.connect();       
-    console.log('Created Edge Connection: ', conn);
-  }
-  return this._edges.get(network_session.id);
-}
 
 ZitiContext.prototype.createNetworkSession = async function(id) {
-  let res = await fetch(`${this._ztAPI}/sessions`, { 
-    method: 'post',
-    headers: { 
+
+  res = await this._controllerClient.createSession({
+    body: { 
+      serviceId: id
+     },
+     headers: { 
       'zt-session': this._apiSession.token,
       'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ serviceId: id })
+    }
   });
-  let json = await res.json();
-  let network_session = json.data;
+  let network_session = res.data;
 
   return network_session;
 }
-
-ZitiContext.prototype.getEdgeRouter = function(networkSession) {
-  let item = find(networkSession.edgeRouters, function(o) { return has(o, 'urls.wss'); });
-  if (isUndefined(item)) {
-    throw new Error(
-      'Specified networkSession does not contain a wss-enabled Edge Router'
-    );
-  }
-  let hostparts = item.hostname.split(':');
-  let hostname = hostparts[0];
-  let hostport = toNumber(hostparts[1]);
-  return hostname+':'+hostport;
-}
-
-/**
- * send the HELLO msg to the Edge Router.
- */
-ZitiContext.prototype.sendHello = function() {
-
-  // wire-protocol: message-section
-  let buffer_message_section = new ArrayBuffer(
-     4  // Version
-    +4  // ContentType  (offset 4)
-    +4  // Sequence     (offset 8)
-    +4  // hdrs-len     (offset 12)
-    +4  // body-len     (offset 16)
-  );
-
-  // wire-protocol: Version
-  let view_message_section = new Uint8Array(buffer_message_section);
-  view_message_section.set(
-    edge_protocol.VERSION, 
-    0 // Offset 0
-  );
-
-  var bytes = new Buffer(4);
-
-  // wire-protocol: ContentType
-  bytes.writeUInt32LE(edge_protocol.content_type.HelloType, 0);
-  view_message_section.set(
-    bytes, 
-    4 // Offset 4
-  );
-
-  bytes = new Buffer(4);
-
-  // wire-protocol: Sequence
-  bytes.writeUInt32LE(zitiContext._sequence, 0);
-  view_message_section.set(
-    bytes, 
-    8 // Offset 8
-  );
-
-  // Build the header
-  let sessionTokenLength = Buffer.byteLength(this._apiSession.token, 'utf8');
-  bytes = new Buffer(
-     4
-    +4
-  );
-  bytes.writeUInt32LE(edge_protocol.header_id.SessionToken, 0);
-  bytes.writeUInt32LE(sessionTokenLength, 4);
-  let session_token_bytes = utils.toUTF8Array(this._apiSession.token);
-  let bytesToken = Buffer.from(session_token_bytes);
-  let bytes_session_header = Buffer.concat([bytes, bytesToken], 4+4+sessionTokenLength);
-
-  bytes = new Buffer(4);
-
-  // wire-protocol: hdrs-len
-  bytes.writeUInt32LE(bytes_session_header.length, 0);
-  view_message_section.set(
-    bytes, 
-    12  // Offset 12
-  );
-
-  bytes = new Buffer(4);
-
-  let body_length = 0;
-
-  // wire-protocol: body-len
-  bytes.writeUInt32LE(body_length, 0);
-  view_message_section.set(
-    bytes, 
-    16  // Offset 16
-  );
-
-  // wire-protocol: headers
-  let buffer_headers_section = new ArrayBuffer(bytes_session_header.length);
-  let view_headers_section = new Uint8Array(buffer_headers_section);
-  view_headers_section.set(bytes_session_header, 0);
-
-  // wire-protocol: body
-  let buffer_body_section = new ArrayBuffer(body_length);
-
-  // Put it all together
-  let buffer_combined = utils.appendBuffer(buffer_message_section, buffer_headers_section);
-  buffer_combined = utils.appendBuffer(buffer_combined, buffer_body_section);
-  let view_combined = new Uint8Array(buffer_combined);
-
-  // Transmit the Hello msg
-  this._websocket.send(view_combined.buffer);  
-
-
-}
-
-/**
- * When the 'onopen' event comes in for a websocket, it means that we have successfully connected with the Edge Router.
- * The next step is to send the HELLO msg to the Edge Router.
- */
-ZitiContext.prototype.websocket_OnOpen = async function() {
-  zitiContext.sendHello();
-}
-
-ZitiContext.prototype.setWebsocket = function(websocket) {
-  this._websocket = websocket;
-
-  this._websocket.onopen = this.websocket_OnOpen;
-
-}
-
-ZitiContext.prototype.getWebsocket = function() {
-  return this._websocket;
-}
-
-
-ZitiContext.prototype.getZitiEdge = function( network_session, options = {} ) {
-
-  if (isUndefined(this._edge)) {
-
-    let _options = flatOptions(options, defaultOptions);
-
-    this._edge = new ZitiEdge(this.getEdgeRouter(network_session), merge(_options, { session_token: this._apiSession.token, network_session_token: network_session.token } ) );
-  
-  }
-
-  return this._edge;
-}
-
