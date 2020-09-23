@@ -1,3 +1,12 @@
+## [0.4.1](https://github.com/openziti/ziti-sdk-js/compare/v0.4.0...v0.4.1) (2020-09-23)
+
+
+### Bug Fixes
+
+* add status badges ([345478c](https://github.com/openziti/ziti-sdk-js/commit/345478cf5e4a6e96f1259ec413fab85b84a3fff6))
+
+
+
 # [0.4.0](https://github.com/openziti/ziti-sdk-js/compare/v0.3.0...v0.4.0) (2020-09-23)
 
 
@@ -32,15 +41,6 @@
 ### Bug Fixes
 
 * browser field test ([407d8b3](https://github.com/openziti/ziti-sdk-js/commit/407d8b3e8630cfd7e9af89fedb972a7607126d2c))
-
-
-
-## [0.2.5](https://github.com/openziti/ziti-sdk-js/compare/v0.2.4...v0.2.5) (2020-09-17)
-
-
-### Bug Fixes
-
-* registry-url ([f0b381c](https://github.com/openziti/ziti-sdk-js/commit/f0b381c3430f23492c47502dfa8bf813a287bc5a))
 
 
 
