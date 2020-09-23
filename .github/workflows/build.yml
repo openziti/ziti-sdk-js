@@ -1,0 +1,75 @@
+# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - 'package.json'
+      - 'CHANGELOG.md'
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      tags:
+        required: false
+        description: 'Misc tags'
+
+jobs:
+
+  # -------------------------------------------------------------------------------
+  #  Do a clean build, test, and publish
+  # -------------------------------------------------------------------------------
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [14.x]
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_ACTION }}
+
+    - name: Bump semver
+      if: github.ref == 'refs/heads/master'
+      uses: TriPSs/conventional-changelog-action@v3
+      with:
+        github-token: ${{ secrets.GH_ACTION }}
+        git-message: 'chore(release): {version}'
+        preset: 'angular'
+        tag-prefix: 'v'
+        output-file: 'CHANGELOG.md'
+
+    - name: Pull newly bumped semver
+      if: github.ref == 'refs/heads/master'
+      run: git pull
+
+    - name: Setup .npmrc
+      if: github.ref == 'refs/heads/master'
+      # Setup .npmrc file to prepare for possible publish to npm
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install
+      run: npm ci
+
+    - name: Build
+      run: npm run build
+
+    - name: Test
+      run: npm test
+
+    - name: Publish
+      if: github.ref == 'refs/heads/master'
+      run: npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
