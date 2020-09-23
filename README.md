@@ -4,11 +4,10 @@ ziti-sdk-js
 A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network
 
 ![Build](https://github.com/openziti/ziti-sdk-js/workflows/Node.js%20CI/badge.svg?branch=master)
-
+[![Known Vulnerabilities](https://snyk.io/test/npm/@openziti/ziti-sdk-js/0.4.1/badge.svg)](https://snyk.io/test/npm/@openziti/ziti-sdk-js/0.4.1)
 [![npm version][npm-image]][npm-url]
-[![install size][install-size-image]][install-size-url]
-
 [![](https://data.jsdelivr.com/v1/package/npm/@openziti/ziti-sdk-js/badge?style=rounded)](https://www.jsdelivr.com/package/npm/@openziti/ziti-sdk-js)
+[![dev install size][install-size-image]][install-size-url]
 
 
 
