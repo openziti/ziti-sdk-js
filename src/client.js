@@ -16,18 +16,19 @@ limitations under the License.
 
 
 const isUndefined     = require('lodash.isundefined');
-const isEqual = require('lodash.isequal');
-const ZitiContext     = require('./context/context');
-const ZitiConnection  = require('./channel/connection');
-const HttpRequest     = require('./http/request');
-const HttpResponse    = require('./http/response');
-const http            = require('./http/http');
-const ZitiXMLHttpRequest = require('./http/ziti-xhr');
+const isEqual         = require('lodash.isequal');
+const formatMessage   = require('format-message');
 const { PassThrough } = require('readable-stream')
-const LogLevel        = require('./logLevels');
-const pjson           = require('../package.json');
-const {throwIf}       = require('./utils/throwif');
-const formatMessage = require('format-message');
+
+const ZitiContext         = require('./context/context');
+const ZitiConnection      = require('./channel/connection');
+const HttpRequest         = require('./http/request');
+const HttpResponse        = require('./http/response');
+const http                = require('./http/http');
+const ZitiXMLHttpRequest  = require('./http/ziti-xhr');
+const LogLevel            = require('./logLevels');
+const pjson               = require('../package.json');
+const {throwIf}           = require('./utils/throwif');
 
 
 formatMessage.setup({
@@ -37,7 +38,7 @@ formatMessage.setup({
 })
 
 
-window.realFetch      = window.fetch;
+window.realFetch          = window.fetch;
 window.realXMLHttpRequest = window.XMLHttpRequest;
 
 /**
@@ -102,7 +103,7 @@ ziti.init = async (options) => {
 
 
 /**
- * Initialize.
+ * Allocate a new Connection.
  *
  * @param {ZitiContext} ctx
  * @param {*} data
@@ -116,6 +117,7 @@ ziti.newConnection = (ctx, data) => {
     data: data
   });
 };
+
 
 /**
  * Dial the `service`.
@@ -153,12 +155,12 @@ ziti.dial = async ( conn, service, options = {} ) => {
  * @return {Response}
  * @api public
  */
-async function write(conn, data) {
-  return ziti._edge.write(conn, data);       // Write data over Fabric session
-}
+// async function write(conn, data) {
+//   return ziti._edge.write(conn, data);       // Write data over Fabric session
+// }
 
-ziti.write = write;
-ziti.send = write;
+// ziti.write  = write;
+// ziti.send   = write;
 
 
 
@@ -173,7 +175,9 @@ ziti.send = write;
  */
 ziti.fetch = async ( conn, url, opts ) => {
 
-  ziti.context.logger.debug('ziti.fetch() entered');
+  let ctx = conn.getCtx();
+
+  ctx.logger.logger.debug('ziti.fetch() entered');
 
 	return new Promise( async (resolve, reject) => {
 
@@ -193,8 +197,6 @@ ziti.fetch = async ( conn, url, opts ) => {
 
       req.end();
     }
-
-    
 
     req.on('error', err => {
 			log.error('error EVENT: err: %o', err);
@@ -216,7 +218,6 @@ ziti.fetch = async ( conn, url, opts ) => {
       let response = new HttpResponse(body, response_options);
       resolve(response);
     });
-
 
   });
 
@@ -275,7 +276,6 @@ fetch = async ( url, opts ) => {
     }
 
     
-
     req.on('error', err => {
 			log.error('error EVENT: err: %o', err);
 			reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));

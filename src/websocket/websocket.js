@@ -22,13 +22,13 @@ limitations under the License.
  */
 
 
-const Channel = require('chnl');
+const Channel           = require('chnl');
 const PromiseController = require('promise-controller');
-const flatOptions = require('flat-options');
+const flatOptions       = require('flat-options');
 
-const Requests = require('./requests');
-const defaultOptions = require('./options');
-const {throwIf} = require('../utils/throwif');
+const Requests          = require('./requests');
+const defaultOptions    = require('./options');
+const {throwIf}         = require('../utils/throwif');
 
 // see: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket#Ready_state_constants
 const STATE = {

@@ -24,8 +24,6 @@ module.exports = ZitiXMLHttpRequest;
 
 function ZitiXMLHttpRequest () {
 
-  console.log('ZitiXMLHttpRequest() entered')
-
   /**
    * Private variables
    */

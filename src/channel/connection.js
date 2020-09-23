@@ -18,13 +18,11 @@ limitations under the License.
  * Module dependencies.
  */
 
-const flatOptions = require('flat-options');
+const flatOptions     = require('flat-options');
 
-const defaultOptions = require('./connection-options');
-const edge_protocol = require('./protocol');
-const zitiConstants = require('../constants');
-const Messages = require('./messages');
-const ZitiWebSocket = require('../websocket/websocket');
+const defaultOptions  = require('./connection-options');
+const edge_protocol   = require('./protocol');
+const Messages        = require('./messages');
 
 
 /**
@@ -54,9 +52,6 @@ module.exports = class ZitiConnection {
 
     this._messages = new Messages({ ctx: this._ctx, conn: this });
 
-    // this._zws = new ZitiWebSocket('wss://' + this._options.edge._edgeRouterHost + '/wss', {} );
-    // this._zws.onMessage.addListener(this._options.edge._recvFromWire, this._options.edge);
-
   }
 
   getCtx() {
@@ -85,7 +80,6 @@ module.exports = class ZitiConnection {
   getAndIncrementSequence() {
     return this._edgeMsgSeq++;
   }
-  
 
   getSocket() {
     return this._socket;
@@ -127,7 +121,6 @@ module.exports = class ZitiConnection {
   setKeypair(keypair) {
     this._keypair = keypair;
   }
-
 
   getSharedRx() {
     return this._sharedRx;

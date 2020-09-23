@@ -423,7 +423,6 @@ module.exports = class ZitiChannel {
     let p = this.sendMessage( edge_protocol.content_type.Data, headers, conn.getCrypt_o().header, {
         conn: conn,
         sequence: sequence,
-        // listener: this._recvCryptoResponse,
         listener: function(msg) {
           this._recvCryptoResponse(msg);
           this._ctx.logger.debug('connect(): conn [%d] releasing mutex', conn.getId());
@@ -834,16 +833,9 @@ module.exports = class ZitiChannel {
   }
 
 
-
   getConnection(id) {
     return this._connections._getConnection(id);
   }
-
-
-
-
-
-
 
 
   getSocket() {
@@ -858,7 +850,6 @@ module.exports = class ZitiChannel {
   setDataCallback(fn) {
     this._dataCallback = fn;
   }
-
 
   getEncrypted() {
     return this._encrypted;
@@ -880,7 +871,6 @@ module.exports = class ZitiChannel {
   setKeypair(keypair) {
     this._keypair = keypair;
   }
-
 
   getSharedRx() {
     return this._sharedRx;
