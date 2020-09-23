@@ -43,6 +43,7 @@
       ]
     }
   },
+  "main": "./dist/ziti.js",
   "browser": {
     "./dist/ziti.js": "./dist/ziti.js",
     "./src/node/index.js": "./src/client.js"
