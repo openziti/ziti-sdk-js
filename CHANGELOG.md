@@ -1,3 +1,12 @@
+# [0.4.0](https://github.com/openziti/ziti-sdk-js/compare/v0.3.0...v0.4.0) (2020-09-23)
+
+
+### Features
+
+* XHR phase 2 ([265305c](https://github.com/openziti/ziti-sdk-js/commit/265305c44137b795e5c08bf2bd373bbdd741cb3f))
+
+
+
 # [0.3.0](https://github.com/openziti/ziti-sdk-js/compare/v0.2.7...v0.3.0) (2020-09-18)
 
 
@@ -32,15 +41,6 @@
 ### Bug Fixes
 
 * registry-url ([f0b381c](https://github.com/openziti/ziti-sdk-js/commit/f0b381c3430f23492c47502dfa8bf813a287bc5a))
-
-
-
-## [0.2.4](https://github.com/openziti/ziti-sdk-js/compare/v0.2.3...v0.2.4) (2020-09-17)
-
-
-### Bug Fixes
-
-* npmrc ([e5956f5](https://github.com/openziti/ziti-sdk-js/commit/e5956f50615b99c61106e1cc5220a09eb5794c2c))
 
 
 
