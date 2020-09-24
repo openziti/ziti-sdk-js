@@ -197,11 +197,11 @@ module.exports = class ZitiChannel {
     const self = this;
     return new Promise( async (resolve, reject) => {
   
-      self._ctx.logger.debug('connect(): conn [%d] awaiting mutex', conn.getId());
+      self._ctx.logger.debug('connect() awaiting mutex for conn [%d]', conn.getId());
 
       const release = await self._mutex.acquire();
 
-      self._ctx.logger.debug('connect(): conn [%d] aquired mutex', conn.getId());
+      self._ctx.logger.debug('connect() aquired mutex for conn [%d]', conn.getId());
   
       self._ctx.logger.debug('initiating Connect to Edge Router [%s] for conn[%d]', this._edgeRouterHost, conn.getId());
   
@@ -240,8 +240,9 @@ module.exports = class ZitiChannel {
           conn: conn,
           sequence: sequence,
           listener: function(msg) {
-            self._recvConnectResponse(msg);
-            self._ctx.logger.debug('connect(): conn [%d] releasing mutex', conn.getId());
+            self._ctx.logger.debug('connect() calling _recvConnectResponse() for conn[%d]', conn.getId());
+            self._recvConnectResponse(msg, conn);
+            self._ctx.logger.debug('connect() releasing mutex for conn[%d]', conn.getId());
             release();
           }
         } 
@@ -257,7 +258,7 @@ module.exports = class ZitiChannel {
    * Receives response from Edge 'Connect' message.
    * 
    */
-  async _recvConnectResponse(msg) {
+  async _recvConnectResponse(msg, expectedConn) {
 
     let buffer = await msg.arrayBuffer();
     let contentTypeView = new Int32Array(buffer, 4, 1);
@@ -267,6 +268,9 @@ module.exports = class ZitiChannel {
     let connId = await this._messageGetConnId(msg);
     let conn = this._connections._getConnection(connId);
     throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking connId { actual }', { actual: connId}) );
+    if (!isEqual(conn.getId(), expectedConn.getId())) {
+      this._ctx.logger.error("_recvConnectResponse() actual conn[%d] expected conn[%d]", conn.getId(), expectedConn.getId());
+    }
 
     this._ctx.logger.debug("ConnectResponse contentType[%d] seq[%d] received for conn[%d]", contentType, sequence, conn.getId());
 
@@ -489,7 +493,7 @@ module.exports = class ZitiChannel {
       messagesQueue = options.conn.getMessages();
     }
 
-    this._ctx.logger.debug("send -> conn: [%o] sequence: [%o] contentType: [%o] body: [%s]", (conn ? conn.getId() : 'n/a'), messageId, contentType, (body ? body.toString() : 'n/a'));
+    this._ctx.logger.trace("send -> conn[%o] seq[%o] contentType[%o] body[%s]", (conn ? conn.getId() : 'n/a'), messageId, contentType, (body ? body.toString() : 'n/a'));
 
     return messagesQueue.create(messageId, () => {
       this._sendMarshaled(contentType, headers, body, options, messageId);
@@ -509,7 +513,7 @@ module.exports = class ZitiChannel {
   sendMessageNoWait(contentType, headers, body, options = {}) {
     const timeout = options.timeout !== undefined ? options.timeout : this._timeout;
     const messageId = options.sequence || this._sequence;
-    this._ctx.logger.debug("send (no wait) -> conn: [%o] sequence: [%o] contentType: [%o] body: [%s]", (options.conn ? options.conn.getId() : 'n/a'), messageId, contentType, (body ? body.toString() : 'n/a'));
+    this._ctx.logger.trace("send (no wait) -> conn[%o] seq[%o] contentType[%o] body[%s]", (options.conn ? options.conn.getId() : 'n/a'), messageId, contentType, (body ? body.toString() : 'n/a'));
 
     this._sendMarshaled(contentType, headers, body, options, messageId);
   }
@@ -734,7 +738,7 @@ module.exports = class ZitiChannel {
         let unencrypted_data = sodium.crypto_secretstream_xchacha20poly1305_pull(conn.getCrypt_i(), bodyView);
 
         let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
-        this._ctx.logger.debug("recv <- unencrypted_data: %s", m1);
+        this._ctx.logger.trace("recv <- unencrypted_data: %s", m1);
 
         bodyView = unencrypted_data.message;
       }
