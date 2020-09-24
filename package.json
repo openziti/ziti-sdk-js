@@ -9,7 +9,8 @@
     "build:clean": "rimraf lib dist",
     "build:lib": "babel --config-file ./.lib.babelrc src --out-dir lib",
     "build:dist": "npm run browserify && npm run minify",
-    "minify": "cross-env NODE_ENV=production browserify -o dist/ziti.min.js -s ziti -g [ babelify --configFile ./.dist.babelrc ] -p tinyify"
+    "minify-old": "cross-env NODE_ENV=production browserify -o dist/ziti.min.js -s ziti -g [ babelify --configFile ./.dist.babelrc ] -p tinyify",
+    "minify": "terser --compress --mangle -o dist/ziti.min.js dist/ziti.js"
   },
   "repository": {
     "type": "git",
