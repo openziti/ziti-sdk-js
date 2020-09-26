@@ -27,7 +27,6 @@ const isEqual               = require('lodash.isequal');
 const minby                 = require('lodash.minby');
 const forEach               = require('lodash.foreach');
 const isUndefined           = require('lodash.isundefined');
-const merge                 = require('lodash.merge');
 const result                = require('lodash.result');
 const has                   = require('lodash.has');
 const toNumber              = require('lodash.tonumber');
@@ -309,12 +308,6 @@ ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRout
  */
 ZitiContext.prototype.connect = async function(conn, networkSession) {
 
-  // this.logger.debug('ctx.connect: conn[%d] awaiting _connectMutex', conn.getId());
-
-  // const release = await this._connectMutex.acquire();
-
-  // this.logger.debug('ctx.connect: conn[%d] acquired _connectMutex', conn.getId());
-
   conn.token = networkSession.token;
 
   // Get list of all Edge Router URLs where the Edge Router has a WSS binding
@@ -341,9 +334,6 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
   // Do not proceed until crypto handshake has completed
   await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
 
-  // this.logger.debug('ctx.connect: conn[%d] releasing _connectMutex', conn.getId());
-
-  // release();
 }
 
 

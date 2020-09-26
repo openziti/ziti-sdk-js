@@ -78,7 +78,6 @@
     "lodash.isequal": "^4.5.0",
     "lodash.isnull": "^3.0.0",
     "lodash.isundefined": "^3.0.1",
-    "lodash.merge": "^4.6.2",
     "lodash.minby": "^4.6.0",
     "lodash.result": "^4.5.2",
     "lodash.tonumber": "^4.0.3",

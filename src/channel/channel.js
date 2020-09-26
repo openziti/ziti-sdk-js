@@ -20,7 +20,6 @@ limitations under the License.
 
 const flatOptions     = require('flat-options');
 const PromiseController = require('promise-controller');
-// const Mutex           = require('async-mutex');
 const isNull          = require('lodash.isnull');
 const forEach         = require('lodash.foreach');
 const isEqual         = require('lodash.isequal');
@@ -77,10 +76,6 @@ module.exports = class ZitiChannel {
 
     // Set the maximum timestamp
     this._helloCompletedTimestamp = new Date(8640000000000000); // http://www.ecma-international.org/ecma-262/5.1/#sec-15.9.1.1
-
-    // this._helloMutex = new Mutex.Mutex();
-    // this._connectMutex = new Mutex.Mutex();
-    // this._cryptoHeaderMutex = new Mutex.Mutex();
 
     this._messages = new Messages({ ctx: this._ctx, channel: this });
 
@@ -152,17 +147,8 @@ module.exports = class ZitiChannel {
 
     await this._zws.open();
 
-    // this._ctx.logger.debug('hello(): ch[%d] awaiting _helloMutex', this._id);
-
-    // this._helloMutexRelease = await this._helloMutex.acquire();
-
-    // this._ctx.logger.debug('hello(): ch[%d] aquired _helloMutex', this._id);
-
     if (this.isHelloCompleted) {
       this._ctx.logger.debug('Hello handshake was previously completed');
-      // this._helloMutexRelease();
-      // return this._helloing.call( this._helloing.resolve( {channel: this, data: null}) );
-
       return new Promise( async (resolve) => {
         resolve( {channel: this, data: null});
       });
@@ -178,18 +164,6 @@ module.exports = class ZitiChannel {
     ]; 
 
     let sequence = this.getAndIncrementSequence();
-
-    // return this.sendMessage( edge_protocol.content_type.HelloType, headers, null, { 
-    //   sequence: sequence,
-    //   listener: function(msg) {
-    //     this._helloCompletedTimestamp = Date.now();
-    //     this._helloCompleted = true;
-    //     this.setState(edge_protocol.conn_state.Connected);
-    //     this._ctx.logger.debug('ch[%d] Hello handshake to Edge Router [%s] completed at timestamp[%o]', this._id, this._edgeRouterHost, this._helloCompletedTimestamp);
-    //     // this._ctx.logger.debug('hello(): ch[%d] releasing _helloMutex', this._id);
-    //     // this._helloMutexRelease();
-    //   }
-    // });
 
     let msg = await this.sendMessage( edge_protocol.content_type.HelloType, headers, null, { 
       sequence: sequence,
@@ -215,13 +189,7 @@ module.exports = class ZitiChannel {
 
     const self = this;
     return new Promise( async (resolve, reject) => {
-  
-      // this._ctx.logger.debug('connect(): conn[%d] awaiting _connectMutex', conn.getId());
-
-      // this._connectMutexRelease = await self._connectMutex.acquire();
-
-      // this._ctx.logger.debug('connect(): conn[%d] aquired _connectMutex', conn.getId());
-  
+    
       self._ctx.logger.debug('initiating Connect to Edge Router [%s] for conn[%d]', this._edgeRouterHost, conn.getId());
   
       await sodium.ready;
@@ -276,60 +244,53 @@ module.exports = class ZitiChannel {
    */
   async _recvConnectResponse(msg, expectedConn) {
 
-    // const self = this;
-    // return new Promise( async (resolve, reject) => {
+    // let buffer = await msg.arrayBuffer();
+    let buffer = await msg.buffer;
+    let contentTypeView = new Int32Array(buffer, 4, 1);
+    let contentType = contentTypeView[0];
+    let sequenceView = new Int32Array(buffer, 8, 1);
+    let sequence = sequenceView[0];
+    let connId = await this._messageGetConnId(msg);
+    let conn = this._connections._getConnection(connId);
+    throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking connId { actual }', { actual: connId}) );
+    if (!isEqual(conn.getId(), expectedConn.getId())) {
+      this._ctx.logger.error("_recvConnectResponse() actual conn[%d] expected conn[%d]", conn.getId(), expectedConn.getId());
+    }
 
-      // let buffer = await msg.arrayBuffer();
-      let buffer = await msg.buffer;
-      let contentTypeView = new Int32Array(buffer, 4, 1);
-      let contentType = contentTypeView[0];
-      let sequenceView = new Int32Array(buffer, 8, 1);
-      let sequence = sequenceView[0];
-      let connId = await this._messageGetConnId(msg);
-      let conn = this._connections._getConnection(connId);
-      throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking connId { actual }', { actual: connId}) );
-      if (!isEqual(conn.getId(), expectedConn.getId())) {
-        this._ctx.logger.error("_recvConnectResponse() actual conn[%d] expected conn[%d]", conn.getId(), expectedConn.getId());
-      }
+    this._ctx.logger.debug("ConnectResponse contentType[%d] seq[%d] received for conn[%d]", contentType, sequence, conn.getId());
 
-      this._ctx.logger.debug("ConnectResponse contentType[%d] seq[%d] received for conn[%d]", contentType, sequence, conn.getId());
+    switch (contentType) {
 
-      switch (contentType) {
+      case edge_protocol.content_type.StateClosed:
 
-        case edge_protocol.content_type.StateClosed:
+        this._ctx.warn("conn[%d] failed to connect", conn.getId());
+        conn.setState(edge_protocol.conn_state.Closed);
+        break;
 
-          this._ctx.warn("conn[%d] failed to connect", conn.getId());
-          conn.setState(edge_protocol.conn_state.Closed);
-          break;
+      case edge_protocol.content_type.StateConnected:
 
-        case edge_protocol.content_type.StateConnected:
+        if (conn.getState() == edge_protocol.conn_state.Connecting) {
+          this._ctx.logger.debug("conn[%d] connected", conn.getId());
 
-          if (conn.getState() == edge_protocol.conn_state.Connecting) {
-            this._ctx.logger.debug("conn[%d] connected", conn.getId());
+          await this._establish_crypto(conn, msg);
+          this._ctx.logger.debug("establish_crypto completed for conn[%d]", conn.getId());
 
-            await this._establish_crypto(conn, msg);
-            this._ctx.logger.debug("establish_crypto completed for conn[%d]", conn.getId());
+          await this._send_crypto_header(conn);
+          this._ctx.logger.debug("send_crypto_header completed for conn[%d]", conn.getId());
 
-            await this._send_crypto_header(conn);
-            this._ctx.logger.debug("send_crypto_header completed for conn[%d]", conn.getId());
+          conn.setState(edge_protocol.conn_state.Connected);
+        }
 
-            conn.setState(edge_protocol.conn_state.Connected);
-          }
-
-          else if (conn.getState() == edge_protocol.conn_state.Closed || conn.getState() == edge_protocol.conn_state.Timedout) {
-            this._ctx.warn("received connect reply for closed/timedout conne[%d]", conn.getId());
-            // ziti_disconnect(conn);
-          }
-          break;
-
-        default:
-          this._ctx.logger.error("unexpected content_type[%d] conn[%d]", contentType, conn.getId());
+        else if (conn.getState() == edge_protocol.conn_state.Closed || conn.getState() == edge_protocol.conn_state.Timedout) {
+          this._ctx.warn("received connect reply for closed/timedout conne[%d]", conn.getId());
           // ziti_disconnect(conn);
-      }
+        }
+        break;
 
-      // resolve();
-  
-    // });
+      default:
+        this._ctx.logger.error("unexpected content_type[%d] conn[%d]", contentType, conn.getId());
+        // ziti_disconnect(conn);
+    }
 
   }
 
@@ -785,15 +746,6 @@ module.exports = class ZitiChannel {
       throwIf(isUndefined(connId), formatMessage('Cannot find ConnId header', { } ) );
       conn = this._connections._getConnection(connId);
       throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking connId { actual }', { actual: connId}) );
-
-      // if (isEqual(contentType, edge_protocol.content_type.Data) && (!isEqual(edge_protocol.conn_state.Connected, conn.getState()))) {
-      //   let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
-      //   if (!isUndefined(result)) {
-      //     replyForView = new Int32Array(result.data, 0, 1);
-      //     responseSequence = replyForView[0];  
-      //     this._ctx.logger.debug("recv <- ReplyFor[%o] (should be for the crypto_header response)", responseSequence);
-      //   }  
-      // }
     }
 
     /**
@@ -856,7 +808,7 @@ module.exports = class ZitiChannel {
 
     let view = new DataView(buffer);
 
-    this._ctx.logger.debug("_dumpHeaders: vv----------------------------------");
+    this._ctx.logger.trace("_dumpHeaders: vv----------------------------------");
 
     for ( ; ndx < headersLength; ) {
 
@@ -875,10 +827,10 @@ module.exports = class ZitiChannel {
         connId = buffer.readUIntLE(0, _headerDataLength);
       }
 
-      this._ctx.logger.debug("headerId[%d] conn[%d] dataLength[%d] data[%o]", _headerId, connId, _headerDataLength, _headerData);
+      this._ctx.logger.trace("headerId[%d] conn[%d] dataLength[%d] data[%o]", _headerId, connId, _headerDataLength, _headerData);
     }
 
-    this._ctx.logger.debug("_dumpHeaders: ^^----------------------------------");
+    this._ctx.logger.trace("_dumpHeaders: ^^----------------------------------");
   }
 
 
