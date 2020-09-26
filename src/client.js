@@ -133,17 +133,20 @@ ziti.dial = async ( conn, service, options = {} ) => {
   let ctx = conn.getCtx();
   throwIf(isUndefined(ctx), formatMessage('Connection has no context.', { }) );
 
-  ctx.logger.debug('dial: conn [%d] service [%s]', conn.getId(), service);
+  ctx.logger.debug('dial: conn[%d] service[%s]', conn.getId(), service);
 
   if (isEqual( ctx.getServices().size, 0 )) {
     await ctx.fetchServices();
   }
 
-  let service_id = await ctx.getServiceIdByName(service);
+  let service_id = ctx.getServiceIdByName(service);
 
   let network_session = await ctx.getNetworkSessionByServiceId(service_id);
 
   await ctx.connect(conn, network_session);
+
+  ctx.logger.debug('dial: conn[%d] service[%s] is now complete', conn.getId(), service);
+
 };
 
 

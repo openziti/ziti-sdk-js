@@ -199,6 +199,7 @@ ZitiContext.prototype.init = async function(options) {
   this._connSeq = 0;
 
   this._mutex = new Mutex.Mutex();
+  this._connectMutex = new Mutex.Mutex();
 
   this._controllerClient = new ZitiControllerClient({
     domain: this._ztAPI,
@@ -240,7 +241,7 @@ ZitiContext.prototype.fetchServices = async function() {
   // Get list of active Services from Controller
   res = await this._controllerClient.listServices({ limit: '100' });
   this._services = res.data;
-  this.logger.debug('List of available Services acquired: [%o]', this._services);  
+  this.logger.debug('List of available Services acquired: [%o]', this._services);
 }
 
 
@@ -272,30 +273,58 @@ ZitiContext.prototype.getServiceNameByHostNameAndPort = async function(hostname,
 /**
  * Connect specified ZitiConnection to the nearest Edge Router.
  * 
+ * @param {Array} edgeRouters
+ * @returns {Promise}
+ */
+ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRouters) {
+
+  return new Promise( async (resolve) => {
+
+    let pendingChannelConnects = new Array();
+
+    let self = this;
+
+    // Get a channel connection to each of the Edge Routers that have a WSS binding, initiating a connection if channel is not yet connected
+    edgeRouters.forEach(async function(edgeRouter, idx, array) {
+      let ch = await self.getChannelByEdgeRouter(conn, edgeRouter.hostname);
+      self.logger.debug('initiating Hello to [%s] for session[%s]', edgeRouter.urls.wss, conn.token);  
+      pendingChannelConnects.push( 
+        ch.hello() 
+      );
+
+      if (idx === array.length - 1) {
+        resolve(pendingChannelConnects);  // Return to caller only after we have processed all edge routers
+      }
+    });
+  });
+}
+
+
+/**
+ * Connect specified ZitiConnection to the nearest Edge Router.
+ * 
  * @param {ZitiConnection} conn
  * @param {ZitiConnection} networkSession
  * @returns {bool}
  */
 ZitiContext.prototype.connect = async function(conn, networkSession) {
 
+  // this.logger.debug('ctx.connect: conn[%d] awaiting _connectMutex', conn.getId());
+
+  // const release = await this._connectMutex.acquire();
+
+  // this.logger.debug('ctx.connect: conn[%d] acquired _connectMutex', conn.getId());
+
   conn.token = networkSession.token;
 
   // Get list of all Edge Router URLs where the Edge Router has a WSS binding
   let edgeRouters = filter(networkSession.edgeRouters, function(o) { return has(o, 'urls.wss'); });
 
-  let pendingChannelConnects = new Array();
+  let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
+  this.logger.debug('pendingChannelConnects [%o]', pendingChannelConnects);  
 
-  let self = this;
-
-  // Get a channel connection to each of the Edge Routers that have a WSS binding, initiating a connection if channel is not yet connected
-  forEach(edgeRouters, function(edgeRouter) {
-    let ch = self.getChannelByEdgeRouter(conn, edgeRouter.hostname);
-    self.logger.debug('initiating Hello to [%s] for session[%s]', edgeRouter.urls.wss, conn.token);  
-    pendingChannelConnects.push( 
-      ch.hello() 
-    );
-  });
   let channelConnects = await Promise.all( pendingChannelConnects );
+  this.logger.debug('channelConnects [%o]', channelConnects);  
 
   // Select channel with nearest Edge Router. Heuristic: select one with earliest Hello-handshake completion timestamp
   let channelConnectWithNearestEdgeRouter = minby(channelConnects, function(channelConnect) { 
@@ -312,6 +341,9 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
   // Do not proceed until crypto handshake has completed
   await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
 
+  // this.logger.debug('ctx.connect: conn[%d] releasing _connectMutex', conn.getId());
+
+  // release();
 }
 
 
@@ -388,41 +420,61 @@ ZitiContext.prototype.getServiceIdByName = function(name) {
   return service_id;
 }
 
+/**
+ * Remain in lazy-sleepy loop until specified channel is connected.
+ * 
+ * @param {*} conn 
+ */
+ZitiContext.prototype.awaitChannelConnectComplete = function(ch) {
+  return new Promise((resolve) => {
+    (function waitForChannelConnectComplete() {
+      if (isEqual( ch.getState(), edge_protocol.conn_state.Initial ) || isEqual( ch.getState(), edge_protocol.conn_state.Connecting )) {
+        ch._ctx.logger.trace('awaitChannelConnectComplete() ch[%d] still not yet connected', ch.getId());
+        setTimeout(waitForChannelConnectComplete, 100);  
+      } else {
+        ch._ctx.logger.trace('ch[%d] is connected', ch.getId());
+        return resolve();
+      }
+    })();
+  });
+}
+
 ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouterHostName) {
 
-  let ch = this._channels.get(edgeRouterHostName);
+  return new Promise( async (resolve) => {
 
-  if (!isUndefined(ch)) {
+    let ch = this._channels.get(edgeRouterHostName);
 
-    this.logger.debug('channel [%d] state [%d] found for ingress[%s]', ch.getId(), ch.getState(), edgeRouterHostName);
+    if (!isUndefined(ch)) {
 
-    if (isEqual( ch.getState(), edge_protocol.conn_state.Connected )) {
-      // nop
+      this.logger.debug('ch[%d] state[%d] found for ingress[%s]', ch.getId(), ch.getState(), edgeRouterHostName);
+
+      await this.awaitChannelConnectComplete(ch);
+
+      if (!isEqual( ch.getState(), edge_protocol.conn_state.Connected )) {
+        this.logger.error('should not be here: ch[%d] has state[%d]', ch.getId(), ch.getState());
+        debugger
+      }
+
+      resolve(ch);
+      return;
     }
-    else if (isEqual( ch.getState(), edge_protocol.conn_state.Initial ) || isEqual( ch.getState(), edge_protocol.conn_state.Connecting )) {
-      this.logger.warn('should we be here? channel [%d] has state [%d]', ch.getId(), ch.getState());
-    }
-    else {
-      this.logger.error('should not be here: channel [%d] has state [%d]', ch.getId(), ch.getState());
-    }
-
-    return ch;
-  }
- 
-  // Create a Channel for this Edge Router
-  ch = new ZitiChannel({ 
-    ctx: this,
-    edgeRouterHost: edgeRouterHostName,
-    session_token: this._apiSession.token,
-    network_session_token: conn.token
-  });
-
-  ch.setState(edge_protocol.conn_state.Connecting);
-
-  this.logger.debug('Created channel [%o] ', ch);
-  this._channels.set(edgeRouterHostName, ch);
   
-  return ch;
+    // Create a Channel for this Edge Router
+    ch = new ZitiChannel({ 
+      ctx: this,
+      edgeRouterHost: edgeRouterHostName,
+      session_token: this._apiSession.token,
+      network_session_token: conn.token
+    });
+
+    ch.setState(edge_protocol.conn_state.Connecting);
+
+    this.logger.debug('Created ch[%o] ', ch);
+    this._channels.set(edgeRouterHostName, ch);
+    
+    resolve(ch);
+  });
 }
 
 ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {

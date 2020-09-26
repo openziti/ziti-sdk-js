@@ -128,6 +128,7 @@ class ZitiSocket extends EventEmitter {
         else if (typeof opts.serviceName == 'string') {
             this.zitiConnection = ziti.newConnection(ziti._ctx);
             await ziti.dial(this.zitiConnection, opts.serviceName);
+            this.zitiConnection.getCtx().logger.debug("ZitiSocket: connect: dial(%s) on conn[%d] now complete", opts.serviceName, this.zitiConnection.getId());
         } else {
             throw new Error('no serviceName or conn was provided');
         }

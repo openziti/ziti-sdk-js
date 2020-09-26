@@ -58,6 +58,7 @@ class ZitiWebSocket {
     this._createOpeningController();
     this._createClosingController();
     this._createChannels();
+    this._ctx = options.ctx;
   }
 
   /**
@@ -247,6 +248,7 @@ class ZitiWebSocket {
    */
   send(data) {
     throwIf(!this.isOpened, `Can't send data because WebSocket is not opened.`);
+    this._ctx.logger.debug('zws: send -> data[%o]', data);
     this._ws.send(data);
     this._onSend.dispatchAsync(data);
   }
@@ -318,6 +320,7 @@ class ZitiWebSocket {
 
   _handleMessage(event) {
     const data = this._options.extractMessageData(event);
+    this._ctx.logger.debug('zws: recv <- data[%o]', data);
     this._onMessage.dispatchAsync(data);
     this._tryUnpack(data);
   }
