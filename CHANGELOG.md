@@ -1,3 +1,12 @@
+## [0.4.5](https://github.com/openziti/ziti-sdk-js/compare/v0.4.4...v0.4.5) (2020-09-27)
+
+
+### Bug Fixes
+
+* semver issue ([760630e](https://github.com/openziti/ziti-sdk-js/commit/760630ede0a315968cd1a1db7cb36b4be7576b84))
+
+
+
 ## [0.4.4](https://github.com/openziti/ziti-sdk-js/compare/v0.4.3...v0.4.4) (2020-09-27)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * add status badges ([345478c](https://github.com/openziti/ziti-sdk-js/commit/345478cf5e4a6e96f1259ec413fab85b84a3fff6))
-
-
-
-# [0.4.0](https://github.com/openziti/ziti-sdk-js/compare/v0.3.0...v0.4.0) (2020-09-23)
-
-
-### Features
-
-* XHR phase 2 ([265305c](https://github.com/openziti/ziti-sdk-js/commit/265305c44137b795e5c08bf2bd373bbdd741cb3f))
 
 
 
