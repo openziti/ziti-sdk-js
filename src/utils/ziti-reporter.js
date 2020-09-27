@@ -22,9 +22,12 @@ class ZitiReporter {
       this.defaultColor = '#7f8c8d' // Gray
 
       this.levelColorMap = {
-        0: '#c0392b', // Red
-        1: '#f39c12', // Yellow
-        3: '#00BCD4' // Cyan
+        0: '#f60404', // Red      FATAL | ERROR
+        1: '#ff5c00', // Orange   WARN
+        2: '#ffeb3b', // Yellow   LOG
+        3: '#4caf50', // Green    INFO
+        4: '#008efe', // Blue     DEBUG
+        5: '#04e2fe', // Cyan     TRACE
       }
 
       this.typeColorMap = {

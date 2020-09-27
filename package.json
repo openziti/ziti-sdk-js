@@ -9,7 +9,6 @@
     "build:clean": "rimraf lib dist",
     "build:lib": "babel --config-file ./.lib.babelrc src --out-dir lib",
     "build:dist": "npm run browserify && npm run minify",
-    "minify-old": "cross-env NODE_ENV=production browserify -o dist/ziti.min.js -s ziti -g [ babelify --configFile ./.dist.babelrc ] -p tinyify",
     "minify": "terser --compress --mangle -o dist/ziti.min.js dist/ziti.js"
   },
   "repository": {
@@ -79,7 +78,6 @@
     "lodash.isequal": "^4.5.0",
     "lodash.isnull": "^3.0.0",
     "lodash.isundefined": "^3.0.1",
-    "lodash.merge": "^4.6.2",
     "lodash.minby": "^4.6.0",
     "lodash.result": "^4.5.2",
     "lodash.tonumber": "^4.0.3",

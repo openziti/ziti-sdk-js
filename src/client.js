@@ -112,10 +112,14 @@ ziti.init = async (options) => {
  */
 
 ziti.newConnection = (ctx, data) => {
-  return new ZitiConnection({ 
+  let conn = new ZitiConnection({ 
     ctx: ctx,
     data: data
   });
+
+  ctx.logger.info('newConnection: conn[%d]', conn.getId());
+
+  return conn;
 };
 
 
@@ -133,17 +137,20 @@ ziti.dial = async ( conn, service, options = {} ) => {
   let ctx = conn.getCtx();
   throwIf(isUndefined(ctx), formatMessage('Connection has no context.', { }) );
 
-  ctx.logger.debug('dial: conn [%d] service [%s]', conn.getId(), service);
+  ctx.logger.debug('dial: conn[%d] service[%s]', conn.getId(), service);
 
   if (isEqual( ctx.getServices().size, 0 )) {
     await ctx.fetchServices();
   }
 
-  let service_id = await ctx.getServiceIdByName(service);
+  let service_id = ctx.getServiceIdByName(service);
 
   let network_session = await ctx.getNetworkSessionByServiceId(service_id);
 
   await ctx.connect(conn, network_session);
+
+  ctx.logger.debug('dial: conn[%d] service[%s] is now complete', conn.getId(), service);
+
 };
 
 
@@ -247,7 +254,7 @@ fetch = async ( url, opts ) => {
   let serviceName = await ziti._ctx.shouldRouteOverZiti(url);
 
   if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
-    ziti._ctx.logger.debug('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+    ziti._ctx.logger.warn('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
     return window.realFetch(url, opts);
   }
 

@@ -99,4 +99,9 @@ module.exports = {
      * See {@link Options.connectionTimeout}
      */
     connectionTimeout: 0,
-  };
+  
+    /**
+     * See {@link Options.ctx}
+     */
+    ctx: null,
+};

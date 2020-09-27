@@ -58,6 +58,7 @@ class ZitiWebSocket {
     this._createOpeningController();
     this._createClosingController();
     this._createChannels();
+    this._ctx = options.ctx;
   }
 
   /**
@@ -247,6 +248,7 @@ class ZitiWebSocket {
    */
   send(data) {
     throwIf(!this.isOpened, `Can't send data because WebSocket is not opened.`);
+    this._ctx.logger.debug('zws: send -> data[%o]', data);
     this._ws.send(data);
     this._onSend.dispatchAsync(data);
   }
@@ -312,12 +314,15 @@ class ZitiWebSocket {
   }
 
   _handleOpen(event) {
+    this._ctx.logger.debug('zws: _handleOpen: event[%o]', event);
     this._onOpen.dispatchAsync(event);
     this._opening.resolve(event);
   }
 
   _handleMessage(event) {
+    this._ctx.logger.debug('zws: _handleMessage: event[%o]', event);
     const data = this._options.extractMessageData(event);
+    this._ctx.logger.debug('zws: _handleMessage: recv <- data[%o]', data);
     this._onMessage.dispatchAsync(data);
     this._tryUnpack(data);
   }
@@ -333,6 +338,7 @@ class ZitiWebSocket {
   }
 
   _tryHandleResponse(data) {
+    this._ctx.logger.debug('zws: _tryHandleResponse: recv <- data[%o]', data);
     if (this._options.extractRequestId) {
       const requestId = this._options.extractRequestId(data);
       if (requestId) {
@@ -343,10 +349,12 @@ class ZitiWebSocket {
   }
 
   _handleError(event) {
+    this._ctx.logger.error('zws: _handleError: event[%o]', event);
     this._onError.dispatchAsync(event);
   }
 
   _handleClose(event) {
+    this._ctx.logger.debug('zws: _handleClose: event[%o]', event);
     this._onClose.dispatchAsync(event);
     this._closing.resolve(event);
     const error = new Error(`WebSocket closed with reason: ${event.reason} (${event.code}).`);

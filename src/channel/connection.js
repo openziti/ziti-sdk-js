@@ -46,7 +46,7 @@ module.exports = class ZitiConnection {
 
     this._timeout = this._ctx.getTimeout();
 
-    this._edgeMsgSeq = 0;
+    this._edgeMsgSeq = 1;
 
     this._id = this._ctx.getNextConnectionId();
 
@@ -78,7 +78,9 @@ module.exports = class ZitiConnection {
   }
 
   getAndIncrementSequence() {
-    return this._edgeMsgSeq++;
+    let seq = this._edgeMsgSeq;
+    this._edgeMsgSeq++;
+    return seq;
   }
 
   getSocket() {
