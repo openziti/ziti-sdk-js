@@ -1,3 +1,12 @@
+## [0.4.4](https://github.com/openziti/ziti-sdk-js/compare/v0.4.3...v0.4.4) (2020-09-27)
+
+
+### Bug Fixes
+
+* semver issue ([06f6a10](https://github.com/openziti/ziti-sdk-js/commit/06f6a1043550a5474ac3c4f10f88137b8d546105))
+
+
+
 ## [0.4.3](https://github.com/openziti/ziti-sdk-js/compare/v0.4.2...v0.4.3) (2020-09-27)
 
 
@@ -31,15 +40,6 @@
 ### Features
 
 * XHR phase 2 ([265305c](https://github.com/openziti/ziti-sdk-js/commit/265305c44137b795e5c08bf2bd373bbdd741cb3f))
-
-
-
-# [0.3.0](https://github.com/openziti/ziti-sdk-js/compare/v0.2.7...v0.3.0) (2020-09-18)
-
-
-### Features
-
-* add xhr intercept ([#6](https://github.com/openziti/ziti-sdk-js/issues/6)) ([3f0cb48](https://github.com/openziti/ziti-sdk-js/commit/3f0cb484e2538d4529fe69a24e3fc9bcf3f074c0))
 
 
 
