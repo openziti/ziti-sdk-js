@@ -3,9 +3,9 @@ ziti-sdk-js
 
 A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network
 
-<img src="https://openziti.github.io/images/ziti-logo-40.png" width="200" />
+<img src="https://ziti.dev/wp-content/uploads/2020/02/ziti.dev_.logo_.png" width="200" />
 
-Learn about Ziti at [ziti.dev](https://ziti.com)
+Learn about Ziti at [ziti.dev](https://ziti.dev)
 
 
 ![Build](https://github.com/openziti/ziti-sdk-js/workflows/Build/badge.svg?branch=master)
