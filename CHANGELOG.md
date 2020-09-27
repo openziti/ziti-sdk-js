@@ -1,3 +1,12 @@
+## [0.4.6](https://github.com/openziti/ziti-sdk-js/compare/v0.4.5...v0.4.6) (2020-09-27)
+
+
+### Bug Fixes
+
+* logo url ([bcbcc52](https://github.com/openziti/ziti-sdk-js/commit/bcbcc522ab6091eade8d5352d4c69645a87ed047))
+
+
+
 ## [0.4.5](https://github.com/openziti/ziti-sdk-js/compare/v0.4.4...v0.4.5) (2020-09-27)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * workflow rename ([4e8a334](https://github.com/openziti/ziti-sdk-js/commit/4e8a334a4363f875c20204b5970e0aac96eaa74f))
-
-
-
-## [0.4.1](https://github.com/openziti/ziti-sdk-js/compare/v0.4.0...v0.4.1) (2020-09-23)
-
-
-### Bug Fixes
-
-* add status badges ([345478c](https://github.com/openziti/ziti-sdk-js/commit/345478cf5e4a6e96f1259ec413fab85b84a3fff6))
 
 
 
