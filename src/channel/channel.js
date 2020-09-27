@@ -546,6 +546,8 @@ module.exports = class ZitiChannel {
 
     const wireData = this._marshalMessage(contentType, headers, dataToMarshal, options, messageId);
 
+    this._dumpHeaders(' -> ', wireData);
+
     // Inject the listener if specified
     if (options.listener !== undefined) {
       this._zws.onMessage.addOnceListener(options.listener, this);
@@ -696,7 +698,7 @@ module.exports = class ZitiChannel {
     let headersLengthView = new Int32Array(buffer, 12, 1);
     let headersLength = headersLengthView[0];
     var headersView = new Uint8Array(buffer, 20);
-    this._dumpHeaders(buffer);
+    this._dumpHeaders(' <- ', buffer);
     var bodyView = new Uint8Array(buffer, 20 + headersLength);
 
     let connId;
@@ -798,7 +800,7 @@ module.exports = class ZitiChannel {
   /**
    * 
    */
-  async _dumpHeaders(buffer) {
+  async _dumpHeaders(pfx, buffer) {
 
     var headersView = new Int32Array(buffer, 12, 1);
 
@@ -808,7 +810,7 @@ module.exports = class ZitiChannel {
 
     let view = new DataView(buffer);
 
-    this._ctx.logger.trace("_dumpHeaders: vv----------------------------------");
+    this._ctx.logger.trace("_dumpHeaders: "+pfx+"vv----------------------------------");
 
     for ( ; ndx < headersLength; ) {
 
@@ -830,7 +832,7 @@ module.exports = class ZitiChannel {
       this._ctx.logger.trace("headerId[%d] conn[%d] dataLength[%d] data[%o]", _headerId, connId, _headerDataLength, _headerData);
     }
 
-    this._ctx.logger.trace("_dumpHeaders: ^^----------------------------------");
+    this._ctx.logger.trace("_dumpHeaders: "+pfx+"^^----------------------------------");
   }
 
 

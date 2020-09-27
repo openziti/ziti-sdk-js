@@ -112,10 +112,14 @@ ziti.init = async (options) => {
  */
 
 ziti.newConnection = (ctx, data) => {
-  return new ZitiConnection({ 
+  let conn = new ZitiConnection({ 
     ctx: ctx,
     data: data
   });
+
+  ctx.logger.info('newConnection: conn[%d]', conn.getId());
+
+  return conn;
 };
 
 
@@ -250,7 +254,7 @@ fetch = async ( url, opts ) => {
   let serviceName = await ziti._ctx.shouldRouteOverZiti(url);
 
   if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
-    ziti._ctx.logger.debug('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+    ziti._ctx.logger.warn('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
     return window.realFetch(url, opts);
   }
 
