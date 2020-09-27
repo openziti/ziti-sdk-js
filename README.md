@@ -10,14 +10,12 @@ A JavaScript-based SDK for delivering secure browser-based web applications over
 [![dev install size][install-size-image]][install-size-url]
 
 
-
-
 <!-- TOC -->
 
 - [Motivation](#motivation)
 - [Features](#features)
 - [Installation](#installation)
-- [Loading and configuring the module](#loading-and-configuring-the-module)
+- [Configuration](#configuration)
 - [License](#license)
 
 <!-- /TOC -->
@@ -32,6 +30,42 @@ tbd
 tbd
 
 ## Installation
+
+### NPM
+
+If you want to embed ziti-sdk-js in your build, it is available through `npm`:
+
+https://www.npmjs.com/package/@openziti/ziti-sdk-js
+
+
+Installation:
+
+    npm i @openziti/ziti-sdk-js
+
+You can then use ziti-sdk-js as a regular module:
+
+```js
+const ziti = require('@openziti/ziti-sdk-js');
+```
+
+### jsDelivr CDN
+
+To use it via [jsDelivr](https://www.jsdelivr.com/package/npm/@openziti/ziti-sdk-js) include this in your html:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@openziti/ziti-sdk-js@0.4.3/dist/ziti.min.js"></script>
+```
+
+### unpkg CDN
+
+To use it via [unpkg](https://unpkg.com/#/) include this in your html:
+
+```html
+<script src="https://unpkg.com/@openziti/ziti-sdk-js@0.4.3/dist/ziti.min.js"></script>
+```
+
+
+## Configuration
 
 tbd
 
