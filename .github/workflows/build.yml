@@ -69,11 +69,12 @@ jobs:
     - name: Test
       run: npm test
 
-    - name: Publish beta release
-      run: npm publish --tag next --access public
-      if: github.ref != 'refs/heads/master'
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+# not yet
+    # - name: Publish beta release
+    #   run: npm publish --tag next --access public
+    #   if: github.ref != 'refs/heads/master'
+    #   env:
+    #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     - name: Publish production release
       if: github.ref == 'refs/heads/master'
