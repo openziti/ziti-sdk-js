@@ -9,10 +9,15 @@ Learn about Ziti at [ziti.dev](https://ziti.dev)
 
 
 ![Build](https://github.com/openziti/ziti-sdk-js/workflows/Build/badge.svg?branch=master)
+[![Issues](https://img.shields.io/github/issues-raw/openziti/ziti-sdk-js)]()
 [![Known Vulnerabilities](https://snyk.io/test/npm/@openziti/ziti-sdk-js/0.4.1/badge.svg)](https://snyk.io/test/npm/@openziti/ziti-sdk-js/0.4.1)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![npm version][npm-image]][npm-url]
 [![](https://data.jsdelivr.com/v1/package/npm/@openziti/ziti-sdk-js/badge?style=rounded)](https://www.jsdelivr.com/package/npm/@openziti/ziti-sdk-js)
-[![dev install size][install-size-image]][install-size-url]
+[![LOC](https://img.shields.io/tokei/lines/github/openziti/ziti-sdk-js)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=rounded)](contributing.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
+
 
 
 <!-- TOC -->
