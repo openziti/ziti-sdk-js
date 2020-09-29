@@ -1,3 +1,12 @@
+## [0.4.8](https://github.com/openziti/ziti-sdk-js/compare/v0.4.6...v0.4.8) (2020-09-29)
+
+
+### Bug Fixes
+
+* add initial test/coverage infra ([2ac437e](https://github.com/openziti/ziti-sdk-js/commit/2ac437e19b65489acb511b62107f36cf04a08a44))
+
+
+
 ## [0.4.6](https://github.com/openziti/ziti-sdk-js/compare/v0.4.5...v0.4.6) (2020-09-27)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * correct Channel sync problem that was hanging web-apps ([68affbc](https://github.com/openziti/ziti-sdk-js/commit/68affbc31656c12c2dee43941705c298a8b1c467))
-
-
-
-## [0.4.2](https://github.com/openziti/ziti-sdk-js/compare/v0.4.1...v0.4.2) (2020-09-23)
-
-
-### Bug Fixes
-
-* workflow rename ([4e8a334](https://github.com/openziti/ziti-sdk-js/commit/4e8a334a4363f875c20204b5970e0aac96eaa74f))
 
 
 
