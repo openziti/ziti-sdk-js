@@ -476,11 +476,13 @@ ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {
 
 ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
   // if we do NOT have a NetworkSession for this serviceId, create it
+  const release = await this._mutex.acquire();
   if (!this._network_sessions.has(serviceID)) { 
     let network_session = await this.createNetworkSession(serviceID);
     this.logger.debug('Created network_session [%o] ', network_session);
     this._network_sessions.set(serviceID, network_session);
   }
+  release();
   return this._network_sessions.get(serviceID);
 }
 
