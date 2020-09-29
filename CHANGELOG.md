@@ -1,3 +1,12 @@
+## [0.4.9](https://github.com/openziti/ziti-sdk-js/compare/v0.4.8...v0.4.9) (2020-09-29)
+
+
+### Bug Fixes
+
+* prevent duplicate network-sessions from being created ([#17](https://github.com/openziti/ziti-sdk-js/issues/17)) ([784e45d](https://github.com/openziti/ziti-sdk-js/commit/784e45d11997d9e9948fa37179558b7af23a1adf))
+
+
+
 ## [0.4.8](https://github.com/openziti/ziti-sdk-js/compare/v0.4.6...v0.4.8) (2020-09-29)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * semver issue ([06f6a10](https://github.com/openziti/ziti-sdk-js/commit/06f6a1043550a5474ac3c4f10f88137b8d546105))
-
-
-
-## [0.4.3](https://github.com/openziti/ziti-sdk-js/compare/v0.4.2...v0.4.3) (2020-09-27)
-
-
-### Bug Fixes
-
-* correct Channel sync problem that was hanging web-apps ([68affbc](https://github.com/openziti/ziti-sdk-js/commit/68affbc31656c12c2dee43941705c298a8b1c467))
 
 
 
