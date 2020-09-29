@@ -30,8 +30,8 @@ const edge_protocol   = require('./protocol');
 
 
 formatMessage.setup({
-  locale: 'es-ES', // what locale strings should be displayed
-  missingReplacement: '!!NOT TRANSLATED!!', // use this when a translation is missing instead of the default message
+//   locale: 'es-ES', // what locale strings should be displayed
+//   missingReplacement: '!!NOT TRANSLATED!!', // use this when a translation is missing instead of the default message
   missingTranslation: 'ignore', // don't console.warn or throw an error when a translation is missing
 })
 
