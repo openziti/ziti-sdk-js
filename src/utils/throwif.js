@@ -17,6 +17,6 @@ limitations under the License.
 
 exports.throwIf = (condition, message) => {
     if (condition) {
-      throw new Error(message);
+      throw new TypeError(message);
     }
   };

@@ -30,10 +30,9 @@ const LogLevel            = require('./logLevels');
 const pjson               = require('../package.json');
 const {throwIf}           = require('./utils/throwif');
 
-
 formatMessage.setup({
-  locale: 'es-ES', // what locale strings should be displayed
-  missingReplacement: '!!NOT TRANSLATED!!', // use this when a translation is missing instead of the default message
+  // locale: 'en', // what locale strings should be displayed
+  // missingReplacement: '!!NOT TRANSLATED!!', // use this when a translation is missing instead of the default message
   missingTranslation: 'ignore', // don't console.warn or throw an error when a translation is missing
 })
 
@@ -41,194 +40,159 @@ formatMessage.setup({
 window.realFetch          = window.fetch;
 window.realXMLHttpRequest = window.XMLHttpRequest;
 
-/**
- * 
- */
-
-let root;
-if (typeof window !== 'undefined') {
-  // Browser window
-  root = window;
-} else if (typeof self === 'undefined') {
-  // Other environments
-  console.warn(
-    'Using browser-only version of ziti in non-browser environment'
-  );
-  root = this;
-} else {
-  // Web Worker
-  root = self;
-}
-
 
 /**
- * Expose `ziti`.
+ * @typicalname client
  */
+class ZitiClient {
 
-module.exports = function() {
-  return new exports.Ziti();
-};
-
-exports = module.exports;
-
-const ziti = exports;
-
-exports.Ziti = Ziti;
-exports.LogLevel = LogLevel;
-
-function Ziti() {}
-
-
-
-/**
- * Initialize.
- *
- * @param {Options} [options]
- * @return {ZitiContext}
- * @api public
- */
-
-ziti.init = async (options) => {
-
-  let ctx = new ZitiContext(ZitiContext.prototype);
-
-  await ctx.init(options);
-
-  ctx.logger.success('JS SDK version %s init completed', pjson.version);
-
-  ziti._ctx = ctx;
-
-  return ctx;
-};
-
-
-/**
- * Allocate a new Connection.
- *
- * @param {ZitiContext} ctx
- * @param {*} data
- * @return {ZitiConection}
- * @api public
- */
-
-ziti.newConnection = (ctx, data) => {
-  let conn = new ZitiConnection({ 
-    ctx: ctx,
-    data: data
-  });
-
-  ctx.logger.info('newConnection: conn[%d]', conn.getId());
-
-  return conn;
-};
-
-
-/**
- * Dial the `service`.
- *
- * @param {ZitiConnection} conn
- * @param {String} service
- * @param {Object} [options]
- * @return {Conn}
- * @api public
- */
-ziti.dial = async ( conn, service, options = {} ) => {
-
-  let ctx = conn.getCtx();
-  throwIf(isUndefined(ctx), formatMessage('Connection has no context.', { }) );
-
-  ctx.logger.debug('dial: conn[%d] service[%s]', conn.getId(), service);
-
-  if (isEqual( ctx.getServices().size, 0 )) {
-    await ctx.fetchServices();
+  constructor() {
   }
 
-  let service_id = ctx.getServiceIdByName(service);
 
-  let network_session = await ctx.getNetworkSessionByServiceId(service_id);
+  /**
+   * Initialize.
+   *
+   * @param {Options} [options]
+   * @return {ZitiContext}
+   * @api public
+   */
+  async init(options) {
 
-  await ctx.connect(conn, network_session);
+    let ctx = new ZitiContext(ZitiContext.prototype);
 
-  ctx.logger.debug('dial: conn[%d] service[%s] is now complete', conn.getId(), service);
+    await ctx.init(options);
 
-};
+    ctx.logger.success('JS SDK version %s init completed', pjson.version);
 
+    ziti._ctx = ctx;
 
-/**
- * Write `data` and callback `fn(res)`.
- *
- * @param {ZitiConnection} conn
- * @param {String} data
- * @return {Response}
- * @api public
- */
-// async function write(conn, data) {
-//   return ziti._edge.write(conn, data);       // Write data over Fabric session
-// }
-
-// ziti.write  = write;
-// ziti.send   = write;
+    return ctx;
+  };
 
 
+  /**
+   * Allocate a new Connection.
+   *
+   * @param {ZitiContext} ctx
+   * @param {*} data
+   * @return {ZitiConection}
+   * @api public
+   */
+  newConnection(ctx, data) {
 
-/**
- * Do a 'fetch' request over the specified Ziti connection.
- *
- * @param {ZitiConnection} conn
- * @param {String} url
- * @param {Object} opts
- * @return {Promise}
- * @api public
- */
-ziti.fetch = async ( conn, url, opts ) => {
+    throwIf(isUndefined(ctx), formatMessage('Specified context is undefined.', { }) );
+    throwIf(isEqual(ctx, null), formatMessage('Specified context is null.', { }) );
 
-  let ctx = conn.getCtx();
-
-  ctx.logger.logger.debug('ziti.fetch() entered');
-
-	return new Promise( async (resolve, reject) => {
-
-    // build HTTP request object
-    let request = new HttpRequest(conn, url, opts);
-    const options = await request.getRequestOptions();
-
-    let req;
-
-    if (options.method === 'GET') {
-
-      req = http.get(options);
-
-    } else {
-
-      req = http.request(options);
-
-      req.end();
-    }
-
-    req.on('error', err => {
-			log.error('error EVENT: err: %o', err);
-			reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));
-			finalize();
-		});
-
-		req.on('response', async res => {
-      let body = res.pipe(new PassThrough());
-      const response_options = {
-				url: request.url,
-				status: res.statusCode,
-				statusText: res.statusMessage,
-				headers: res.headers,
-				size: request.size,
-				timeout: request.timeout,
-				counter: request.counter
-			};
-      let response = new HttpResponse(body, response_options);
-      resolve(response);
+    let conn = new ZitiConnection({ 
+      ctx: ctx,
+      data: data
     });
 
-  });
+    ctx.logger.info('newConnection: conn[%d]', conn.getId());
+
+    return conn;
+  };
+
+
+  /**
+   * Dial the `service`.
+   *
+   * @param {ZitiConnection} conn
+   * @param {String} service
+   * @param {Object} [options]
+   * @return {Conn}
+   * @api public
+   */
+  async dial( conn, service, options = {} ) {
+
+    let ctx = conn.getCtx();
+    throwIf(isUndefined(ctx), formatMessage('Connection has no context.', { }) );
+
+    ctx.logger.debug('dial: conn[%d] service[%s]', conn.getId(), service);
+
+    if (isEqual( ctx.getServices().size, 0 )) {
+      await ctx.fetchServices();
+    }
+
+    let service_id = ctx.getServiceIdByName(service);
+
+    let network_session = await ctx.getNetworkSessionByServiceId(service_id);
+
+    await ctx.connect(conn, network_session);
+
+    ctx.logger.debug('dial: conn[%d] service[%s] is now complete', conn.getId(), service);
+
+  };
+
+
+  /**
+   * Do a 'fetch' request over the specified Ziti connection.
+   *
+   * @param {ZitiConnection} conn
+   * @param {String} url
+   * @param {Object} opts
+   * @return {Promise}
+   * @api public
+   */
+  async fetch( conn, url, opts ) {
+
+    let ctx = conn.getCtx();
+
+    ctx.logger.logger.debug('ziti.fetch() entered');
+
+    return new Promise( async (resolve, reject) => {
+
+      // build HTTP request object
+      let request = new HttpRequest(conn, url, opts);
+      const options = await request.getRequestOptions();
+
+      let req;
+
+      if (options.method === 'GET') {
+
+        req = http.get(options);
+
+      } else {
+
+        req = http.request(options);
+
+        req.end();
+      }
+
+      req.on('error', err => {
+        log.error('error EVENT: err: %o', err);
+        reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));
+        finalize();
+      });
+
+      req.on('response', async res => {
+        let body = res.pipe(new PassThrough());
+        const response_options = {
+          url: request.url,
+          status: res.statusCode,
+          statusText: res.statusMessage,
+          headers: res.headers,
+          size: request.size,
+          timeout: request.timeout,
+          counter: request.counter
+        };
+        let response = new HttpResponse(body, response_options);
+        resolve(response);
+      });
+
+    });
+
+  }
 
 }
+
+const ziti = new ZitiClient();
+
+ziti.LogLevel = LogLevel;
+
+module.exports = ziti;
+
 
 
 /**

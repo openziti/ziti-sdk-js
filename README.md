@@ -15,8 +15,8 @@ Learn about Ziti at [ziti.dev](https://ziti.dev)
 [![npm version][npm-image]][npm-url]
 [![](https://data.jsdelivr.com/v1/package/npm/@openziti/ziti-sdk-js/badge?style=rounded)](https://www.jsdelivr.com/package/npm/@openziti/ziti-sdk-js)
 [![LOC](https://img.shields.io/tokei/lines/github/openziti/ziti-sdk-js)]()
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=rounded)](contributing.md)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=rounded)](CONTRIBUTING.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
 
 
