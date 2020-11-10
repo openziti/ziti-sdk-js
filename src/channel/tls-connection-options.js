@@ -15,34 +15,53 @@ limitations under the License.
 */
 
 
-"use strict";
-
 /**
- * 
+ * Default options.
  */
-const ZITI_CONSTANTS = 
-{
-    'ZITI_CONTROLLER':      'ZITI_CONTROLLER',
 
-    /**
-     * The default timeout in milliseconds for connections and write operations to succeed.
-     */
-    'ZITI_DEFAULT_TIMEOUT': 10000,
 
-    /**
-     * The ...
-     */
-    'ZITI_CLIENT_CERT_PEM': 'ZITI_CLIENT_CERT_PEM',
+module.exports = {
 
-    /**
-     * The ...
-     */
-    'ZITI_CLIENT_PRIVATE_KEY_PEM': 'ZITI_CLIENT_PRIVATE_KEY_PEM',
+  /**
+   * See {@link Options.type}
+   *
+   */
+  type: null,
+
+  /**
+   * See {@link Options.ctx}
+   *
+   */
+  ctx: null,
+
+  /**
+   * See {@link Options.ws}
+   *
+   */
+  ws: null,
+
+  /**
+   * See {@link Options.ch}
+   *
+   */
+  ch: null,
+
+  /**
+   * See {@link Options.datacb}
+   *
+   */
+  datacb: null,
+
+  /**
+   * See {@link Options.data}
+   *
+   */
+  data: null,
+
+  /**
+   * See {@link Options.edgeRouterHost}
+   *
+   */
+  edgeRouterHost: null,
 
 };
-
-  
-exports.get = () => {  
-    return ZITI_CONSTANTS;
-};
-  

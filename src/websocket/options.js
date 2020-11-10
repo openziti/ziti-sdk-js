@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+
+const RobustWebSocket = require('robust-websocket');
+
 /**
  * Default options.
  */
@@ -47,7 +50,15 @@ module.exports = {
      * @param {String} url
      * @returns {WebSocket}
      */
-    createWebSocket: url => new WebSocket(url),
+    createWebSocket: url => new RobustWebSocket(url, null, {
+        timeout: 5000, // milliseconds to wait before a connection is considered to have timed out
+        shouldReconnect: function(event, ws) {
+            if (event.code === 1008 || event.code === 1011) return; // Do not reconnect on 1008 (HTTP 400 equivalent) and 1011 (HTTP 500 equivalent) 
+            return Math.pow(1.5, ws.attempts) * 500;    // reconnect with exponential back-off
+        },
+        automaticOpen: true,
+        ignoreConnectivityEvents: false
+    }),
   
     /**
      * See {@link Options.packMessage}

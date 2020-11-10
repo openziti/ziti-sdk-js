@@ -106,7 +106,7 @@ function extract_certStart(chunk) {
  * @param {string} chunk
  */  
 function extract_certEnd(chunk) {
-  let re = /^(.*)".*\}\,/s;
+  let re = /^(.*)\\n"\,/s;
   let matches = re.exec(chunk);
   if (matches == null) {
     certPEM += chunk;

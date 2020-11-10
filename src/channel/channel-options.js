@@ -47,10 +47,10 @@ module.exports = {
     data: null,
 
     /**
-     * See {@link Options.edgeRouterHost}
+     * See {@link Options.edgeRouter}
      *
      */
-    edgeRouterHost: null,
+    edgeRouter: null,
 
     /**
      * See {@link Options.timeout}

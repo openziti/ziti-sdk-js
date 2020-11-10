@@ -31,6 +31,7 @@ const result                = require('lodash.result');
 const has                   = require('lodash.has');
 const toNumber              = require('lodash.tonumber');
 const Mutex                 = require('async-mutex');
+const formatMessage         = require('format-message');
 
 const utils                 = require('../utils/utils');
 const ls                    = require('../utils/localstorage');
@@ -42,8 +43,10 @@ const identityModalSelect   = require('../ui/identity_modal/select');
 const identityModalDragDrop = require('../ui/identity_modal/dragdrop');
 const zitiConstants         = require('../constants');
 const ZitiReporter          = require('../utils/ziti-reporter');
+const ZitiControllerWSClient  = require('./controller-ws-client');
 const ZitiControllerClient  = require('./controller-client');
 const ZitiChannel           = require('../channel/channel');
+const {throwIf}             = require('../utils/throwif');
 
 
 /**
@@ -200,47 +203,103 @@ ZitiContext.prototype.init = async function(options) {
   this._mutex = new Mutex.Mutex();
   this._connectMutex = new Mutex.Mutex();
 
-  this._controllerClient = new ZitiControllerClient({
+
+  /*
+   *  Start WS client stuff...
+   */
+
+  this._controllerWSClient = new ZitiControllerWSClient({
+    ctx: this,
     domain: this._ztAPI,
     logger: this.logger
   });
 
-  try {
+  await this._controllerWSClient.connect();
 
-    // Get Controller version info
-    let res = await this._controllerClient.listVersion();
-    this._controllerVersion = res.data;
-    this.logger.debug('Controller Version: [%o]', this._controllerVersion);
+  // Get Controller version info
+  // let res = await this._controllerWSClient.listVersion();
+  // let ver = Buffer.from(res).toString()
+  // this._controllerVersion = res.data;
+  // this.logger.debug('Controller Version: [%o]', this._controllerVersion);
+  
+  // Get an API session with Controller
+  res = await this._controllerWSClient.authenticate({
+    method: 'cert',
+    body: { 
+      configTypes: [
+        'ziti-tunneler-client.v1'
+      ]
+    }
+  });
+  res = JSON.parse(Buffer.from(res).toString());
+  this._apiSession = res.data;
+  this.logger.debug('Controller API Session established: [%o]', this._apiSession);
 
-    // Get an API session with Controller
-    res = await this._controllerClient.authenticate({
-      method: 'cert',
-      body: { 
-        configTypes: [
-          'ziti-tunneler-client.v1'
-        ]
-       }
-    });
-    this._apiSession = res.data;
-    this.logger.debug('Controller API Session established: [%o]', this._apiSession);
+  // Set the token header on behalf of all subsequent Controller API calls
+  this._controllerWSClient.setApiKey(this._apiSession.token, 'zt-session', false);
 
-    // Set the token header on behalf of all subsequent Controller API calls
-    this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
+  
+  // res = await this._controllerWSClient.listServices({ 
+  //   limit: '100' 
+  // });
+  // let resStr = Buffer.from(res).toString();
+  // // res = JSON.parse(Buffer.from(res).toString());
+  // res = JSON.parse(resStr);
+  // this._services = res.data;
+  // this.logger.debug('List of available Services acquired: [%o]', this._services);
 
-    this._sequence = 0;
 
-  } catch (err) {
-    this.logger.error(err);
-  }
+
+
+  // this._controllerClient = new ZitiControllerClient({
+  //   domain: this._ztAPI,
+  //   logger: this.logger
+  // });
+
+  // try {
+
+  //   // Get Controller version info
+  //   let res = await this._controllerClient.listVersion();
+  //   this._controllerVersion = res.data;
+  //   this.logger.debug('Controller Version: [%o]', this._controllerVersion);
+
+  //   // Get an API session with Controller
+  //   res = await this._controllerClient.authenticate({
+  //     method: 'cert',
+  //     body: { 
+  //       configTypes: [
+  //         'ziti-tunneler-client.v1'
+  //       ]
+  //      }
+  //   });
+  //   this._apiSession = res.data;
+  //   this.logger.debug('Controller API Session established: [%o]', this._apiSession);
+
+  //   // Set the token header on behalf of all subsequent Controller API calls
+  //   this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
+
+  //   this._sequence = 0;
+
+  // } catch (err) {
+  //   this.logger.error(err);
+  // }
 
 }
 
 
 ZitiContext.prototype.fetchServices = async function() {
   // Get list of active Services from Controller
-  res = await this._controllerClient.listServices({ limit: '100' });
+  // res = await this._controllerClient.listServices({ limit: '100' });
+  // this._services = res.data;
+  // this.logger.debug('List of available Services acquired: [%o]', this._services);
+
+  res = await this._controllerWSClient.listServices({ 
+    limit: '100' 
+  });
+  res = JSON.parse(Buffer.from(res).toString());
   this._services = res.data;
   this.logger.debug('List of available Services acquired: [%o]', this._services);
+
 }
 
 
@@ -283,10 +342,10 @@ ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRout
 
     let self = this;
 
-    // Get a channel connection to each of the Edge Routers that have a WSS binding, initiating a connection if channel is not yet connected
+    // Get a channel connection to each of the Edge Routers that have a WS binding, initiating a connection if channel is not yet connected
     edgeRouters.forEach(async function(edgeRouter, idx, array) {
-      let ch = await self.getChannelByEdgeRouter(conn, edgeRouter.hostname);
-      self.logger.debug('initiating Hello to [%s] for session[%s]', edgeRouter.urls.wss, conn.token);  
+      let ch = await self.getChannelByEdgeRouter(conn, edgeRouter);
+      self.logger.debug('initiating Hello to [%s] for session[%s]', edgeRouter.urls.ws, conn.token);  
       pendingChannelConnects.push( 
         ch.hello() 
       );
@@ -310,8 +369,14 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 
   conn.token = networkSession.token;
 
-  // Get list of all Edge Router URLs where the Edge Router has a WSS binding
-  let edgeRouters = filter(networkSession.edgeRouters, function(o) { return has(o, 'urls.wss'); });
+  // Get list of all Edge Router URLs where the Edge Router has a WS binding
+  let edgeRouters = filter(networkSession.edgeRouters, function(o) { return has(o, 'urls.ws'); });
+
+  // Something is wrong if we have no ws-enabled edge routers
+  throwIf(isEqual(edgeRouters.length, 0), formatMessage('No Edge Routers with ws: binding were found.', { }) );
+
+  //
+  const release = await this._connectMutex.acquire();
 
   let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
   this.logger.debug('pendingChannelConnects [%o]', pendingChannelConnects);  
@@ -333,6 +398,8 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 
   // Do not proceed until crypto handshake has completed
   await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+
+  release();
 
 }
 
@@ -410,6 +477,64 @@ ZitiContext.prototype.getServiceIdByName = function(name) {
   return service_id;
 }
 
+
+/**
+ * Remain in lazy-sleepy loop until specified channel is connected.
+ * 
+ * @param {*} conn 
+ */
+ZitiContext.prototype.awaitControllerChannelConnectComplete = function(ch) {
+  return new Promise((resolve) => {
+    (function waitForControllerChannelConnectComplete() {
+      if (isEqual( ch.getState(), edge_protocol.conn_state.Initial ) || isEqual( ch.getState(), edge_protocol.conn_state.Connecting )) {
+        ch._ctx.logger.trace('waitForControllerChannelConnectComplete() ch[%d] still not yet connected', ch.getId());
+        setTimeout(waitForControllerChannelConnectComplete, 100);  
+      } else {
+        ch._ctx.logger.trace('controller ch[%d] is connected', ch.getId());
+        return resolve();
+      }
+    })();
+  });
+}
+
+ZitiContext.prototype.getControllerChannel = function() {
+
+  return new Promise( async (resolve) => {
+
+    let ch = this._channels.get(edgeRouter.hostname);
+
+    if (!isUndefined(ch)) {
+
+      this.logger.debug('ch[%d] state[%d] found for ingress[%s]', ch.getId(), ch.getState(), edgeRouter.hostname);
+
+      await this.awaitChannelConnectComplete(ch);
+
+      if (!isEqual( ch.getState(), edge_protocol.conn_state.Connected )) {
+        this.logger.error('should not be here: ch[%d] has state[%d]', ch.getId(), ch.getState());
+      }
+
+      resolve(ch);
+      return;
+    }
+  
+    // Create a Channel for this Edge Router
+    ch = new ZitiChannel({ 
+      ctx: this,
+      edgeRouter: edgeRouter,
+      session_token: this._apiSession.token,
+      network_session_token: conn.token
+    });
+
+    ch.setState(edge_protocol.conn_state.Connecting);
+
+    this.logger.debug('Created ch[%o] ', ch);
+    this._channels.set(edgeRouter.hostname, ch);
+    
+    resolve(ch);
+  });
+}
+
+
 /**
  * Remain in lazy-sleepy loop until specified channel is connected.
  * 
@@ -429,21 +554,20 @@ ZitiContext.prototype.awaitChannelConnectComplete = function(ch) {
   });
 }
 
-ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouterHostName) {
+ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouter) {
 
   return new Promise( async (resolve) => {
 
-    let ch = this._channels.get(edgeRouterHostName);
+    let ch = this._channels.get(edgeRouter.hostname);
 
     if (!isUndefined(ch)) {
 
-      this.logger.debug('ch[%d] state[%d] found for ingress[%s]', ch.getId(), ch.getState(), edgeRouterHostName);
+      this.logger.debug('ch[%d] state[%d] found for ingress[%s]', ch.getId(), ch.getState(), edgeRouter.hostname);
 
       await this.awaitChannelConnectComplete(ch);
 
       if (!isEqual( ch.getState(), edge_protocol.conn_state.Connected )) {
         this.logger.error('should not be here: ch[%d] has state[%d]', ch.getId(), ch.getState());
-        debugger
       }
 
       resolve(ch);
@@ -453,7 +577,7 @@ ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouterHostName
     // Create a Channel for this Edge Router
     ch = new ZitiChannel({ 
       ctx: this,
-      edgeRouterHost: edgeRouterHostName,
+      edgeRouter: edgeRouter,
       session_token: this._apiSession.token,
       network_session_token: conn.token
     });
@@ -461,7 +585,7 @@ ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouterHostName
     ch.setState(edge_protocol.conn_state.Connecting);
 
     this.logger.debug('Created ch[%o] ', ch);
-    this._channels.set(edgeRouterHostName, ch);
+    this._channels.set(edgeRouter.hostname, ch);
     
     resolve(ch);
   });
@@ -489,7 +613,7 @@ ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
 
 ZitiContext.prototype.createNetworkSession = async function(id) {
 
-  res = await this._controllerClient.createSession({
+  res = await this._controllerWSClient.createSession({
     body: { 
       serviceId: id
      },
@@ -498,6 +622,7 @@ ZitiContext.prototype.createNetworkSession = async function(id) {
       'Content-Type': 'application/json'
     }
   });
+  res = JSON.parse(Buffer.from(res).toString());
   let network_session = res.data;
 
   return network_session;
