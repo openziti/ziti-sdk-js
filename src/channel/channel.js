@@ -24,6 +24,7 @@ const isNull          = require('lodash.isnull');
 const forEach         = require('lodash.foreach');
 const isEqual         = require('lodash.isequal');
 const isUndefined     = require('lodash.isundefined');
+const concat          = require('lodash.concat');
 const formatMessage   = require('format-message');
 const sodium          = require('libsodium-wrappers');
 
@@ -742,12 +743,45 @@ module.exports = class ZitiChannel {
 
 
   /**
-   * Receives un-encrypted message from the Edge Router.
+   * Receives un-encrypted binary data from the Edge Router (which is either an entire edge protocol message, or a fragment thereof)
    * 
-   * @param {*} data 
+   * @param ArrayBuffer data 
    */
   async _recvFromWireAfterDecrypt(ch, data) {
-    ch._tryUnmarshal(data);   
+
+    let buffer = data;
+
+    if (!isUndefined(ch._partialMessage)) {  // if we are awaiting rest of a partial msg to arrive, append this chunk onto the end, then proceed
+      let dataView = new Uint8Array(data);
+      ch._partialMessage = utils.concatTypedArrays(ch._partialMessage, dataView);
+      buffer = ch._partialMessage.buffer.slice(0);
+    } 
+
+    let versionView = new Uint8Array(buffer, 0, 4);
+    throwIf(!isEqual(versionView[0], ch._view_version[0]), formatMessage('Unexpected message version. Got { actual }, expected { expected }', { actual: versionView[0], expected:  ch._view_version[0]}) );
+
+    let headersLengthView = new Int32Array(buffer, 12, 1);
+    let headersLength = headersLengthView[0];
+
+    let bodyLengthView = new Int32Array(buffer, 16, 1);
+    let bodyLength = bodyLengthView[0];
+
+    let msgLength = ( 20 + headersLength + bodyLength );
+
+    if (isEqual(msgLength, buffer.byteLength)) {  // if entire edge mmessage is present, proceed with unmarshaling effort
+
+      ch._partialMessage = undefined;
+      
+      ch._tryUnmarshal(buffer);
+
+    } else {
+
+      ch._partialMessage = new Uint8Array(buffer);
+
+      if (buffer.byteLength > 20) { // if we have a portion of the data section of the edge message 
+        ch._ctx.logger.debug("Only [%o] of msgLength [%o] received; will await rest of fragments before unmarshaling", buffer.byteLength, msgLength);
+      }
+    }
   }
 
 
@@ -763,13 +797,10 @@ module.exports = class ZitiChannel {
     let versionView = new Uint8Array(buffer, 0, 4);
     throwIf(!isEqual(versionView[0], this._view_version[0]), formatMessage('Unexpected message version. Got { actual }, expected { expected }', { actual: versionView[0], expected:  this._view_version[0]}) );
 
-    // let acceptableContentTypes = [edge_protocol.content_type.ResultType, edge_protocol.content_type.StateConnected]
     let contentTypeView = new Int32Array(buffer, 4, 1);
     let contentType = contentTypeView[0];
-    // throwIf(!acceptableContentTypes.includes(contentType), formatMessage('Unexpected message content-type. Got { actual }, expected { expected }', { actual: contentType, expected:  edge_protocol.content_type.ResultType}) );
 
     let sequenceView = new Int32Array(buffer, 8, 1);
-    // throwIf(!isEqual(sequenceView[0], -1), formatMessage('Unexpected message sequence. Got { actual }, expected { expected }', { actual: sequenceView[0], expected:  -1 }));
     this._ctx.logger.debug("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
 
     let responseSequence = sequenceView[0];
@@ -782,7 +813,6 @@ module.exports = class ZitiChannel {
     let bodyLength = bodyLengthView[0];
     this._ctx.logger.debug("recv <- bodyLength[%o]", bodyLength);
 
-    // var headersView = new Uint8Array(buffer, 20);
     this._dumpHeaders(' <- ', buffer);
     var bodyView = new Uint8Array(buffer, 20 + headersLength);
 
