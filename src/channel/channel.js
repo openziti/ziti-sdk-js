@@ -36,6 +36,7 @@ const Header          = require('./header');
 const Messages        = require('./messages');
 const {throwIf}       = require('../utils/throwif');
 const utils           = require('../utils/utils');
+const ZitiTLSConnection   = require('./tls-connection');
 
 
 /**
@@ -64,11 +65,20 @@ module.exports = class ZitiChannel {
 
     this._msgSeq = -1;
 
-    this._edgeRouterHost = this._options.edgeRouterHost;
+    this._edgeRouter = this._options.edgeRouter;
+    this._edgeRouterHost = this._edgeRouter.hostname;
 
     this._connections = new ZitiConnections();
 
-    this._zws = new ZitiWebSocket( 'wss://' + this._edgeRouterHost + '/wss' , { ctx: this._ctx} );
+    // Prefer WS over WSS
+    if (this._edgeRouter.urls.ws) {
+      this._zws = new ZitiWebSocket( 'ws://' + this._edgeRouterHost + '/ws' , { ctx: this._ctx} );
+      this._callerId = "ws:";
+    }
+    else if (this._edgeRouter.urls.wss) {
+      this._zws = new ZitiWebSocket( 'wss://' + this._edgeRouterHost + '/wss' , { ctx: this._ctx} );
+      this._callerId = "wss:";
+    }
 
     this._zws.onMessage.addListener(this._recvFromWire, this);
 
@@ -140,7 +150,26 @@ module.exports = class ZitiChannel {
 
 
   /**
-   * Do Hello handshake betweek this channel and associated Edge Router.
+   * Remain in lazy-sleepy loop until tlsConn has completed its TLS handshake.
+   * 
+   */
+  async awaitTLSHandshakeComplete() {
+    let self = this;
+    return new Promise((resolve) => {
+      (function waitForTLSHandshakeComplete() {
+        if (!self._tlsConn.isTLSHandshakeComplete()) {
+          self._ctx.logger.trace('awaitTLSHandshakeComplete() tlsConn for ch[%d] TLS handshake still not complete', self.getId());
+          setTimeout(waitForTLSHandshakeComplete, 100);  
+        } else {
+          self._ctx.logger.trace('tlsConn for ch[%d] TLS handshake is now complete', self.getId());
+          return resolve();
+        }
+      })();
+    });
+  }
+
+  /**
+   * Do Hello handshake between this channel and associated Edge Router.
    * 
    */
   async hello() {
@@ -154,12 +183,39 @@ module.exports = class ZitiChannel {
       });
     }
 
+    if (isEqual(this._callerId, "ws:")) {
+
+      this._tlsConn = new ZitiTLSConnection({
+        type: 'edge-router',
+        ctx: this._ctx,
+        ws: this._zws,
+        ch: this,
+        datacb: this._recvFromWireAfterDecrypt
+
+      });
+  
+      this._tlsConn.create();
+
+      this._ctx.logger.debug('initiating TLS handshake');
+
+      this._tlsConn.handshake();
+
+      await this.awaitTLSHandshakeComplete();
+
+      this._ctx.logger.debug('TLS handshake completed');
+
+    }
+
     this._ctx.logger.debug('initiating message: edge_protocol.content_type.HelloType');
 
     let headers = [
       new Header( edge_protocol.header_id.SessionToken, { 
         headerType: edge_protocol.header_type.StringType, 
         headerData: this._options.session_token 
+      }),
+      new Header( edge_protocol.header_id.CallerId, { 
+        headerType: edge_protocol.header_type.StringType, 
+        headerData: this._callerId 
       })
     ]; 
 
@@ -230,6 +286,7 @@ module.exports = class ZitiChannel {
       );
 
       self._ctx.logger.debug('connect() calling _recvConnectResponse() for conn[%d]', conn.getId());
+
       await self._recvConnectResponse(msg.data, conn);
     
       resolve();
@@ -263,7 +320,7 @@ module.exports = class ZitiChannel {
 
       case edge_protocol.content_type.StateClosed:
 
-        this._ctx.warn("conn[%d] failed to connect", conn.getId());
+        this._ctx.logger.warn("conn[%d] failed to connect", conn.getId());
         conn.setState(edge_protocol.conn_state.Closed);
         break;
 
@@ -282,7 +339,7 @@ module.exports = class ZitiChannel {
         }
 
         else if (conn.getState() == edge_protocol.conn_state.Closed || conn.getState() == edge_protocol.conn_state.Timedout) {
-          this._ctx.warn("received connect reply for closed/timedout conne[%d]", conn.getId());
+          this._ctx.logger.warn("received connect reply for closed/timedout conne[%d]", conn.getId());
           // ziti_disconnect(conn);
         }
         break;
@@ -354,6 +411,9 @@ module.exports = class ZitiChannel {
 
     // Unblock writes to the connection now that we have sent the crypto header
     conn.setCryptoEstablishComplete(true);
+
+    this._ctx.logger.debug("_recvCryptoResponse(): setCryptoEstablishComplete for conn[%d]", connId);
+
   }
 
 
@@ -553,7 +613,13 @@ module.exports = class ZitiChannel {
       this._zws.onMessage.addOnceListener(options.listener, this);
     }
 
-    this._zws.send(wireData);
+    // If connected to a WS edge router
+    if (isEqual(this._callerId, "ws:")) {
+      this._tlsConn.prepare(wireData);
+    }
+    else {
+      this._zws.send(wireData);
+    }
   }
 
 
@@ -668,7 +734,20 @@ module.exports = class ZitiChannel {
    * @param {*} data 
    */
   async _recvFromWire(data) {
-    this._tryUnmarshal(data);   
+    let buffer = await data.arrayBuffer();
+    this._ctx.logger.debug("_recvFromWire <- data len[%o]", buffer.byteLength);
+    let tlsBinaryString = Buffer.from(buffer).toString('binary');
+    this._tlsConn.process(tlsBinaryString);
+  }
+
+
+  /**
+   * Receives un-encrypted message from the Edge Router.
+   * 
+   * @param {*} data 
+   */
+  async _recvFromWireAfterDecrypt(ch, data) {
+    ch._tryUnmarshal(data);   
   }
 
 
@@ -679,7 +758,7 @@ module.exports = class ZitiChannel {
    */
   async _tryUnmarshal(data) {
 
-    let buffer = await data.arrayBuffer();
+    let buffer = data;
 
     let versionView = new Uint8Array(buffer, 0, 4);
     throwIf(!isEqual(versionView[0], this._view_version[0]), formatMessage('Unexpected message version. Got { actual }, expected { expected }', { actual: versionView[0], expected:  this._view_version[0]}) );
@@ -697,7 +776,13 @@ module.exports = class ZitiChannel {
 
     let headersLengthView = new Int32Array(buffer, 12, 1);
     let headersLength = headersLengthView[0];
-    var headersView = new Uint8Array(buffer, 20);
+    this._ctx.logger.debug("recv <- headersLength[%o]", headersLength);
+
+    let bodyLengthView = new Int32Array(buffer, 16, 1);
+    let bodyLength = bodyLengthView[0];
+    this._ctx.logger.debug("recv <- bodyLength[%o]", bodyLength);
+
+    // var headersView = new Uint8Array(buffer, 20);
     this._dumpHeaders(' <- ', buffer);
     var bodyView = new Uint8Array(buffer, 20 + headersLength);
 
@@ -755,16 +840,25 @@ module.exports = class ZitiChannel {
      */
     if (contentType == edge_protocol.content_type.Data) {
 
-      if (conn.getEncrypted()) {
+      if (bodyLength > 0) {
 
-        let unencrypted_data = sodium.crypto_secretstream_xchacha20poly1305_pull(conn.getCrypt_i(), bodyView);
+        if (conn.getEncrypted()) {
 
-        try {
-          let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
-          this._ctx.logger.trace("recv <- unencrypted_data: %s", m1);
-        } catch (e) { /* nop */ }
+          let unencrypted_data = sodium.crypto_secretstream_xchacha20poly1305_pull(conn.getCrypt_i(), bodyView);
 
-        bodyView = unencrypted_data.message;
+          if (!unencrypted_data) {
+            this._ctx.logger.error("crypto_secretstream_xchacha20poly1305_pull failed. bodyLength[%d]", bodyLength);
+          }
+
+          // if (unencrypted_data) {
+            try {
+              let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
+              this._ctx.logger.trace("recv <- unencrypted_data: %s", m1);
+            } catch (e) { /* nop */ }
+
+            bodyView = unencrypted_data.message;
+          // }
+        }
       }
 
       // 
@@ -845,8 +939,10 @@ module.exports = class ZitiChannel {
 
     if (!isUndefined(msg.arrayBuffer)) {
       buffer = await msg.arrayBuffer();
-    } else {
+    } else if (!isUndefined(msg.buffer)) {
       buffer = await msg.buffer;
+    } else {
+      buffer = msg;
     }
 
     var headersView = new Int32Array(buffer, 12, 1);

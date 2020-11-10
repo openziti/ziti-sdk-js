@@ -22,6 +22,7 @@ const { PassThrough } = require('readable-stream')
 
 const ZitiContext         = require('./context/context');
 const ZitiConnection      = require('./channel/connection');
+const ZitiTLSConnection   = require('./channel/tls-connection');
 const HttpRequest         = require('./http/request');
 const HttpResponse        = require('./http/response');
 const http                = require('./http/http');
@@ -161,7 +162,7 @@ class ZitiClient {
       }
 
       req.on('error', err => {
-        log.error('error EVENT: err: %o', err);
+        ctx.logger.logger.error('error EVENT: err: %o', err);
         reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));
         finalize();
       });
@@ -248,9 +249,8 @@ fetch = async ( url, opts ) => {
 
     
     req.on('error', err => {
-			log.error('error EVENT: err: %o', err);
+			ziti._ctx.logger.error('error EVENT: err: %o', err);
 			reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));
-			finalize();
 		});
 
 		req.on('response', async res => {

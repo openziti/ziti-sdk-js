@@ -218,6 +218,16 @@ class ZitiSocket extends EventEmitter {
     uncork() {
         this._writable = true;
     }
+
+    /**
+     *
+     */
+    pause() {
+        this._writable = false;
+    }
+    resume() {
+        this._writable = true;
+    }
       
 
     /**

@@ -52,6 +52,9 @@ const ZitiEnums = {
       DialFailed:     60789,
       Bind:           60790,
       Unbind:         60791,
+      StateSessionEnded: 60792,
+      Probe:             60793,
+      UpdateBind:        60794,
 
     },
   
@@ -66,11 +69,17 @@ const ZitiEnums = {
       ReflectedHeaderBitMask: 1 << 7,
       MaxReflectedHeader: (1 << 8) - 1,
   
-      ConnId: 1000,
-      SeqHeader: 1001,
-      SessionToken: 1002,
-      PublicKey: 1003,
-    
+      ConnId:                   1000,
+      SeqHeader:                1001,
+      SessionToken:             1002,
+      PublicKey:                1003,
+      Cost:                     1004,
+      Precedence:               1005,
+      TerminatorIdentity:       1006,
+      TerminatorIdentitySecret: 1007,
+      CallerId:                 1008,
+      CryptoMethod:             1009,
+      Flags:                    1010,
     },
 
     header_type: {
