@@ -1,3 +1,12 @@
+## [0.5.1](https://github.com/openziti/ziti-sdk-js/compare/v0.5.0...v0.5.1) (2020-11-10)
+
+
+### Bug Fixes
+
+* Edge msg defrag ([#24](https://github.com/openziti/ziti-sdk-js/issues/24)) ([1584dcc](https://github.com/openziti/ziti-sdk-js/commit/1584dcca37497b845a3831d98b54fe030bf63758))
+
+
+
 # [0.5.0](https://github.com/openziti/ziti-sdk-js/compare/v0.4.9...v0.5.0) (2020-11-10)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * logo url ([bcbcc52](https://github.com/openziti/ziti-sdk-js/commit/bcbcc522ab6091eade8d5352d4c69645a87ed047))
-
-
-
-## [0.4.5](https://github.com/openziti/ziti-sdk-js/compare/v0.4.4...v0.4.5) (2020-09-27)
-
-
-### Bug Fixes
-
-* semver issue ([760630e](https://github.com/openziti/ziti-sdk-js/commit/760630ede0a315968cd1a1db7cb36b4be7576b84))
 
 
 
