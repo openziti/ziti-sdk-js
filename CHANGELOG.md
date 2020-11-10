@@ -1,3 +1,12 @@
+# [0.5.0](https://github.com/openziti/ziti-sdk-js/compare/v0.4.9...v0.5.0) (2020-11-10)
+
+
+### Features
+
+* Forge-based mTLS over WS ([69f821d](https://github.com/openziti/ziti-sdk-js/commit/69f821d31c6f96bc84e490d7001f9408efc4a941))
+
+
+
 ## [0.4.9](https://github.com/openziti/ziti-sdk-js/compare/v0.4.8...v0.4.9) (2020-09-29)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * semver issue ([760630e](https://github.com/openziti/ziti-sdk-js/commit/760630ede0a315968cd1a1db7cb36b4be7576b84))
-
-
-
-## [0.4.4](https://github.com/openziti/ziti-sdk-js/compare/v0.4.3...v0.4.4) (2020-09-27)
-
-
-### Bug Fixes
-
-* semver issue ([06f6a10](https://github.com/openziti/ziti-sdk-js/commit/06f6a1043550a5474ac3c4f10f88137b8d546105))
 
 
 
