@@ -1,6 +1,6 @@
 {
   "name": "@openziti/ziti-sdk-js",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network",
   "scripts": {
     "test": "cross-env NODE_ENV=test mocha -t 30000 -R ${REPORTER:-spec} tests/unit/index.js",
