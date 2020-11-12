@@ -1,3 +1,12 @@
+# [0.6.0](https://github.com/openziti/ziti-sdk-js/compare/v0.5.1...v0.6.0) (2020-11-12)
+
+
+### Features
+
+* support 'encryptionRequired' on|off on services ([#25](https://github.com/openziti/ziti-sdk-js/issues/25)) ([02d7861](https://github.com/openziti/ziti-sdk-js/commit/02d7861168a2073870cafbcf7b0b5302a0fa6657))
+
+
+
 ## [0.5.1](https://github.com/openziti/ziti-sdk-js/compare/v0.5.0...v0.5.1) (2020-11-10)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * add initial test/coverage infra ([2ac437e](https://github.com/openziti/ziti-sdk-js/commit/2ac437e19b65489acb511b62107f36cf04a08a44))
-
-
-
-## [0.4.6](https://github.com/openziti/ziti-sdk-js/compare/v0.4.5...v0.4.6) (2020-09-27)
-
-
-### Bug Fixes
-
-* logo url ([bcbcc52](https://github.com/openziti/ziti-sdk-js/commit/bcbcc522ab6091eade8d5352d4c69645a87ed047))
 
 
 
