@@ -396,8 +396,10 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
   // Initiate connection with Edge Router (creates Fabric session)
   await channelWithNearestEdgeRouter.connect(conn);
 
-  // Do not proceed until crypto handshake has completed
-  await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+  if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
+    // Do not proceed until crypto handshake has completed
+    await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+  }
 
   release();
 
@@ -475,6 +477,14 @@ ZitiContext.prototype.getServiceIdByName = function(name) {
   }), 'id');
   this.logger.debug('service[%s] has id[%s]', name, service_id);
   return service_id;
+}
+
+ZitiContext.prototype.getServiceEncryptionRequiredByName = function(name) {
+  let encryptionRequired = result(find(this._services, function(obj) {
+    return obj.name === name;
+  }), 'encryptionRequired');
+  this.logger.debug('service[%s] has encryptionRequired[%o]', name, encryptionRequired);
+  return encryptionRequired;
 }
 
 

@@ -117,12 +117,14 @@ class ZitiClient {
     }
 
     let service_id = ctx.getServiceIdByName(service);
+    
+    conn.setEncrypted(ctx.getServiceEncryptionRequiredByName(service));
 
     let network_session = await ctx.getNetworkSessionByServiceId(service_id);
 
     await ctx.connect(conn, network_session);
 
-    ctx.logger.debug('dial: conn[%d] service[%s] is now complete', conn.getId(), service);
+    ctx.logger.debug('dial: conn[%d] service[%s] encryptionRequired[%o] is now complete', conn.getId(), service, conn.getEncrypted());
 
   };
 

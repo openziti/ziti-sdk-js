@@ -258,7 +258,7 @@ module.exports = class ZitiChannel {
       let sequence = this.getAndIncrementSequence();
 
       let headers = [
-  
+    
         new Header( edge_protocol.header_id.ConnId, {
           headerType: edge_protocol.header_type.IntType,
           headerData: conn.getId()
@@ -268,13 +268,20 @@ module.exports = class ZitiChannel {
           headerType: edge_protocol.header_type.IntType, 
           headerData: 0 
         }),
-  
-        new Header( edge_protocol.header_id.PublicKey, { 
-          headerType: edge_protocol.header_type.Uint8ArrayType, 
-          headerData: keypair.publicKey
-        })
-  
+    
       ];
+
+      if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
+
+        headers.push(
+        
+          new Header( edge_protocol.header_id.PublicKey, { 
+            headerType: edge_protocol.header_type.Uint8ArrayType, 
+            headerData: keypair.publicKey
+          })
+    
+        );
+      }
   
       conn.setState(edge_protocol.conn_state.Connecting);
   
@@ -330,11 +337,15 @@ module.exports = class ZitiChannel {
         if (conn.getState() == edge_protocol.conn_state.Connecting) {
           this._ctx.logger.debug("conn[%d] connected", conn.getId());
 
-          await this._establish_crypto(conn, msg);
-          this._ctx.logger.debug("establish_crypto completed for conn[%d]", conn.getId());
+          if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
 
-          await this._send_crypto_header(conn);
-          this._ctx.logger.debug("send_crypto_header completed for conn[%d]", conn.getId());
+            await this._establish_crypto(conn, msg);
+            this._ctx.logger.debug("establish_crypto completed for conn[%d]", conn.getId());
+
+            await this._send_crypto_header(conn);
+            this._ctx.logger.debug("send_crypto_header completed for conn[%d]", conn.getId());
+
+          }
 
           conn.setState(edge_protocol.conn_state.Connected);
         }
@@ -588,10 +599,7 @@ module.exports = class ZitiChannel {
       let conn = this._connections._getConnection(connId);
       throwIf(isUndefined(conn), formatMessage('Conn not found. Seeking connId { actual }', { actual: connId}) );
 
-      /**
-       * 
-       */
-      if (conn.getEncrypted()) {
+      if (conn.getEncrypted() && conn.getCryptoEstablishComplete()) {  // if connected to a service that has 'encryptionRequired'
 
         let [state_out, header] = [conn.getCrypt_o().state, conn.getCrypt_o().header];
 
@@ -872,7 +880,7 @@ module.exports = class ZitiChannel {
 
       if (bodyLength > 0) {
 
-        if (conn.getEncrypted()) {
+        if (conn.getEncrypted() && conn.getCryptoEstablishComplete()) {  // if connected to a service that has 'encryptionRequired'
 
           let unencrypted_data = sodium.crypto_secretstream_xchacha20poly1305_pull(conn.getCrypt_i(), bodyView);
 
@@ -880,14 +888,12 @@ module.exports = class ZitiChannel {
             this._ctx.logger.error("crypto_secretstream_xchacha20poly1305_pull failed. bodyLength[%d]", bodyLength);
           }
 
-          // if (unencrypted_data) {
-            try {
-              let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
-              this._ctx.logger.trace("recv <- unencrypted_data: %s", m1);
-            } catch (e) { /* nop */ }
+          try {
+            let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
+            this._ctx.logger.trace("recv <- unencrypted_data: %s", m1);
+          } catch (e) { /* nop */ }
 
-            bodyView = unencrypted_data.message;
-          // }
+          bodyView = unencrypted_data.message;
         }
       }
 
