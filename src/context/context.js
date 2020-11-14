@@ -407,7 +407,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 
 
 /**
- * Connect specified ZitiConnection to the nearest Edge Router.
+ * Close specified ZitiConnection with Edge Router.
  * 
  * @param {ZitiConnection} conn
  * @returns {bool}
