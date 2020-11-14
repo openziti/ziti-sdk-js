@@ -194,12 +194,13 @@ function ClientRequest(input, options, cb) {
     // If it's not a keepAlive agent, and the maxSockets==Infinity, then
     // there's never a case where this socket will actually be reused
     // if (!this.agent.keepAlive && !NumberIsFinite(this.agent.maxSockets)) {
-      // this._last = true;
-      // this.shouldKeepAlive = false;
-    // } else {
+    if (!this.agent.keepAlive) {
+        this._last = true;
+      this.shouldKeepAlive = false;
+    } else {
       this._last = false;
       this.shouldKeepAlive = true;
-    // }
+    }
   }
 
   const headersArray = Array.isArray(options.headers.raw());

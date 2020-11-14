@@ -130,6 +130,26 @@ class ZitiClient {
 
 
   /**
+   * Close the `connection`.
+   *
+   * @param {ZitiConnection} conn
+   * @api public
+   */
+  async close( conn ) {
+
+    let ctx = conn.getCtx();
+    throwIf(isUndefined(ctx), formatMessage('Connection has no context.', { }) );
+
+    ctx.logger.debug('close: conn[%d]' , conn.getId());
+
+    await ctx.close(conn);
+
+    ctx.logger.debug('close: conn[%d] is now complete', conn.getId());
+
+  };
+
+
+  /**
    * Do a 'fetch' request over the specified Ziti connection.
    *
    * @param {ZitiConnection} conn

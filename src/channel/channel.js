@@ -83,6 +83,8 @@ module.exports = class ZitiChannel {
 
     this._zws.onMessage.addListener(this._recvFromWire, this);
 
+    this._zws.onClose.addListener(this._recvClose, this);
+
     this._createHelloController();
 
     // Set the maximum timestamp
@@ -296,6 +298,51 @@ module.exports = class ZitiChannel {
       self._ctx.logger.debug('connect() calling _recvConnectResponse() for conn[%d]', conn.getId());
 
       await self._recvConnectResponse(msg.data, conn);
+    
+      resolve();
+  
+    });
+  }
+
+
+  /**
+   * Close specified Connection to associated Edge Router.
+   * 
+   */
+  async close(conn) {
+
+    const self = this;
+    return new Promise( async (resolve, reject) => {
+    
+      self._ctx.logger.debug('initiating Close to Edge Router [%s] for conn[%d]', this._edgeRouterHost, conn.getId());
+  
+      let sequence = conn.getAndIncrementSequence();
+
+      let headers = [
+    
+        new Header( edge_protocol.header_id.ConnId, {
+          headerType: edge_protocol.header_type.IntType,
+          headerData: conn.getId()
+        }),
+  
+        new Header( edge_protocol.header_id.SeqHeader, { 
+          headerType: edge_protocol.header_type.IntType, 
+          headerData: sequence
+        }),
+    
+      ];
+    
+      self._ctx.logger.debug('about to send Close to Edge Router [%s] for conn[%d]', conn.getChannel().getEdgeRouterHost(), conn.getId());
+  
+      let msg = await self.sendMessage( edge_protocol.content_type.StateClosed, headers, self._options.network_session_token, { 
+          conn: conn,
+          sequence: sequence,
+        } 
+      );
+
+      self._ctx.logger.debug('close() completed with response[%o]', msg);
+
+      conn.setState(edge_protocol.conn_state.Closed);
     
       resolve();
   
@@ -738,6 +785,18 @@ module.exports = class ZitiChannel {
 
 
   /**
+   * Receives a close event from the Websocket.
+   * 
+   * @param {*} data 
+   */
+  async _recvClose(data) {
+
+    this._ctx.closeChannelByEdgeRouter( this._edgeRouterHost );
+
+  }
+
+
+  /**
    * Receives a message from the Edge Router.
    * 
    * @param {*} data 
@@ -776,7 +835,7 @@ module.exports = class ZitiChannel {
 
     let msgLength = ( 20 + headersLength + bodyLength );
 
-    if (isEqual(msgLength, buffer.byteLength)) {  // if entire edge mmessage is present, proceed with unmarshaling effort
+    if (isEqual(msgLength, buffer.byteLength)) {  // if entire edge message is present, proceed with unmarshaling effort
 
       ch._partialMessage = undefined;
       
@@ -855,13 +914,27 @@ module.exports = class ZitiChannel {
 
       let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.ReplyFor);
       if (!isUndefined(result)) {
+
         replyForView = new Int32Array(result.data, 0, 1);
         responseSequence = replyForView[0];  
         this._ctx.logger.debug("recv <- ReplyFor[%o]", responseSequence);
+
       } else {
-        this._ctx.logger.debug("recv <- ReplyFor[%o]", 'n/a');  
-        responseSequence--;
-        this._ctx.logger.debug("reducing seq by 1 to [%o]", responseSequence);
+
+        if ( isEqual(contentType, edge_protocol.content_type.Data) && isEqual(bodyLength, 0) ) {
+
+          let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
+          replyForView = new Int32Array(result.data, 0, 1);
+          responseSequence = replyForView[0];  
+          this._ctx.logger.debug("recv <- Close Response For [%o]", responseSequence);  
+  
+        } else {
+
+          this._ctx.logger.debug("recv <- ReplyFor[%o]", 'n/a');  
+          responseSequence--;
+          this._ctx.logger.debug("reducing seq by 1 to [%o]", responseSequence);
+
+        }
       }
     }
 
@@ -918,7 +991,10 @@ module.exports = class ZitiChannel {
     if (!isUndefined(conn)) {
       messagesQueue = conn.getMessages()
     }
-    this._ctx.logger.debug("_tryHandleResponse():  conn[%d] seq[%d]", (conn ? conn.getId() : 'n/a'), responseSequence);
+    // var uint8array = new TextEncoder().encode(data);
+    var string = new TextDecoder().decode(data.data);
+
+    this._ctx.logger.debug("_tryHandleResponse():  conn[%d] seq[%d] data[%o]", (conn ? conn.getId() : 'n/a'), responseSequence, string);
     if (!isNull(responseSequence)) {
       messagesQueue.resolve(responseSequence, data);
     } else {
