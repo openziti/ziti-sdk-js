@@ -47,6 +47,7 @@ jobs:
         tag-prefix: 'v'
         output-file: 'CHANGELOG.md'
         skip-on-empty: true # do not alter semver when we push 'chore: ...' commits
+        release-count: 0 # ensure changelog is generated to contain ALL updates
 
     - name: Pull newly bumped semver
       if: github.ref == 'refs/heads/master'
