@@ -263,13 +263,13 @@ HttpRequest.prototype.getRequestOptions = function() {
 	// --- Disable gzip for now ---
 	//
 	// // HTTP-network-or-cache fetch step 2.15
-	// if (request.compress && !headers.has('Accept-Encoding')) {
-	// 	headers.set('Accept-Encoding', 'gzip,deflate');
-	// }
-
-	if (!headers.has('Connection')) {
-		headers.set('Connection', 'keep-alive');
+	if (this.compress && !headers.has('Accept-Encoding')) {
+		headers.set('Accept-Encoding', 'gzip,deflate');
 	}
+
+	// if (!headers.has('Connection')) {
+	// 	headers.set('Connection', 'keep-alive');
+	// }
 
 	return Object.assign({}, parsedURL, {
 		serviceName: this.getServiceName(),

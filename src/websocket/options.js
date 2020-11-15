@@ -54,7 +54,7 @@ module.exports = {
         timeout: 5000, // milliseconds to wait before a connection is considered to have timed out
         shouldReconnect: function(event, ws) {
             if (event.code === 1008 || event.code === 1011) return; // Do not reconnect on 1008 (HTTP 400 equivalent) and 1011 (HTTP 500 equivalent) 
-            return Math.pow(1.5, ws.attempts) * 500;    // reconnect with exponential back-off
+            return Math.pow(2.0, ws.attempts) * 1000;    // reconnect with exponential back-off
         },
         automaticOpen: true,
         ignoreConnectivityEvents: false

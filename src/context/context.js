@@ -406,6 +406,24 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 }
 
 
+/**
+ * Close specified ZitiConnection with Edge Router.
+ * 
+ * @param {ZitiConnection} conn
+ * @returns {bool}
+ */
+ZitiContext.prototype.close = async function(conn) {
+
+  let ch = conn.getChannel();
+
+  await ch.close(conn);
+
+  ch._connections._deleteConnection(conn);
+
+}
+
+
+
 ZitiContext.prototype._getChannelForConnId = function(id) {
   let ch = find(this._channels, function(ch) {
     return (!isUndefined( ch._connections._getConnection(id) ));
@@ -601,12 +619,19 @@ ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouter) {
   });
 }
 
+
+ZitiContext.prototype.closeChannelByEdgeRouter = function( edgeRouter ) {
+  this._channels.delete( edgeRouter );  
+}
+
+
 ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {
   let service_id = result(find(this._services, function(obj) {
     return obj.dns.hostname === name;
   }), 'id');
   return service_id;
 }
+
 
 ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
   // if we do NOT have a NetworkSession for this serviceId, create it

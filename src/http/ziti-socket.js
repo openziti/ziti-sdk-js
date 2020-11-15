@@ -228,7 +228,22 @@ class ZitiSocket extends EventEmitter {
     resume() {
         this._writable = true;
     }
-      
+
+    /**
+     *
+     */
+    async destroy() {
+        this._writable = false;
+        await ziti.close(this.zitiConnection);
+    }
+    
+    /**
+     *
+     */
+    async end(data, encoding, callback) {
+        this._writable = false;
+        await ziti.close(this.zitiConnection);
+    }
 
     /**
      * Implements the writeable stream method `_final` used when .end() is called to write the final data to the stream.
