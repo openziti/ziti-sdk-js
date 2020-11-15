@@ -1,3 +1,12 @@
+## [0.6.1](https://github.com/openziti/ziti-sdk-js/compare/v0.6.0...v0.6.1) (2020-11-15)
+
+
+### Bug Fixes
+
+* Better Connection Close Handling ([#27](https://github.com/openziti/ziti-sdk-js/issues/27)) ([62bad1e](https://github.com/openziti/ziti-sdk-js/commit/62bad1e104165f3d3b97f79bfc883bd48d5c2771))
+
+
+
 # [0.6.0](https://github.com/openziti/ziti-sdk-js/compare/v0.5.1...v0.6.0) (2020-11-12)
 
 
@@ -31,15 +40,6 @@
 ### Bug Fixes
 
 * prevent duplicate network-sessions from being created ([#17](https://github.com/openziti/ziti-sdk-js/issues/17)) ([784e45d](https://github.com/openziti/ziti-sdk-js/commit/784e45d11997d9e9948fa37179558b7af23a1adf))
-
-
-
-## [0.4.8](https://github.com/openziti/ziti-sdk-js/compare/v0.4.6...v0.4.8) (2020-09-29)
-
-
-### Bug Fixes
-
-* add initial test/coverage infra ([2ac437e](https://github.com/openziti/ziti-sdk-js/commit/2ac437e19b65489acb511b62107f36cf04a08a44))
 
 
 
