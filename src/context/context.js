@@ -189,71 +189,80 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
  */
 ZitiContext.prototype.init = async function(options) {
 
-  let _options = flatOptions(options, defaultOptions);
+  return new Promise( async (resolve, reject) => {
 
-  this.logger = consola.create({
-    level: _options.logLevel,
-    reporters: [
-      new ZitiReporter()
-    ],
-    defaults: {
-      additionalColor: 'white'
+    let _options = flatOptions(options, defaultOptions);
+
+    this.logger = consola.create({
+      level: _options.logLevel,
+      reporters: [
+        new ZitiReporter()
+      ],
+      defaults: {
+        additionalColor: 'white'
+      }
+    })
+
+    this._ztAPI = await this._awaitIdentityLoadComplete().catch((err) => {
+      return;
+    });
+
+    this._controllerClient = new ZitiControllerClient({
+      domain: this._ztAPI,
+      logger: this.logger
+    });
+
+    // Get Controller version info
+    let res = await this._controllerClient.listVersion();
+    this._controllerVersion = res.data;
+    this.logger.info('Controller Version: [%o]', this._controllerVersion);
+
+    this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
+
+    this._network_sessions = new Map();
+    this._services = new Map();
+    this._channels = new Map();
+    this._channelSeq = 0;
+    this._connSeq = 0;
+
+    this._mutex = new Mutex.Mutex();
+    this._connectMutex = new Mutex.Mutex();
+
+    /*
+    *  Start WS client stuff...
+    */
+
+    this._controllerWSClient = new ZitiControllerWSClient({
+      ctx: this,
+      domain: this._ztWSAPI,
+      logger: this.logger
+    });
+
+    await this._controllerWSClient.connect();
+    
+    // Get an API session with Controller
+    res = await this._controllerWSClient.authenticate({
+      method: 'cert',
+      body: { 
+        configTypes: [
+          'ziti-tunneler-client.v1'
+        ]
+      }
+    });
+    res = JSON.parse(Buffer.from(res).toString());
+    if (!isUndefined(res.error)) {
+      this.logger.error(res.error.message);
+      reject(res.error.message);
+      return;
     }
-  })
+    this._apiSession = res.data;
+    this.logger.debug('Controller API Session established: [%o]', this._apiSession);
 
-  this._ztAPI = await this._awaitIdentityLoadComplete().catch((err) => {
-    return;
+    // Set the token header on behalf of all subsequent Controller API calls
+    this._controllerWSClient.setApiKey(this._apiSession.token, 'zt-session', false);
+
+    resolve();
   });
-
-  this._controllerClient = new ZitiControllerClient({
-    domain: this._ztAPI,
-    logger: this.logger
-  });
-
-  // Get Controller version info
-  let res = await this._controllerClient.listVersion();
-  this._controllerVersion = res.data;
-  this.logger.info('Controller Version: [%o]', this._controllerVersion);
-
-  this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
-
-  this._network_sessions = new Map();
-  this._services = new Map();
-  this._channels = new Map();
-  this._channelSeq = 0;
-  this._connSeq = 0;
-
-  this._mutex = new Mutex.Mutex();
-  this._connectMutex = new Mutex.Mutex();
-
-
-  /*
-   *  Start WS client stuff...
-   */
-
-  this._controllerWSClient = new ZitiControllerWSClient({
-    ctx: this,
-    domain: this._ztWSAPI,
-    logger: this.logger
-  });
-
-  await this._controllerWSClient.connect();
-  
-  // Get an API session with Controller
-  res = await this._controllerWSClient.authenticate({
-    method: 'cert',
-    body: { 
-      configTypes: [
-        'ziti-tunneler-client.v1'
-      ]
-    }
-  });
-  res = JSON.parse(Buffer.from(res).toString());
-  this._apiSession = res.data;
-  this.logger.debug('Controller API Session established: [%o]', this._apiSession);
-
-  // Set the token header on behalf of all subsequent Controller API calls
-  this._controllerWSClient.setApiKey(this._apiSession.token, 'zt-session', false);
 }
 
 
