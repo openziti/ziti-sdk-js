@@ -64,7 +64,7 @@ exports.inject = () => {
 	  font-weight: 600;
 	  font-size: 1.25rem;
 	  line-height: 1.25;
-	  color: #00449e;
+	  color: #ffffff;
 	  box-sizing: border-box;
 	}
 	

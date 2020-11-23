@@ -32,3 +32,15 @@ exports.setMessage = (errorMessage) => {
         
 }
   
+exports.setProgress = (progressMessage) => {
+
+  var el = document.getElementById("ziti-identity-progress") 
+  if (typeof progressMessage != "undefined") { 
+    el.textContent = progressMessage 
+    el.style.color = "green" 
+  } else { 
+    el.textContent = "" 
+  } 
+        
+}
+  

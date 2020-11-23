@@ -21,8 +21,36 @@ limitations under the License.
  * 
  */
 const ZITI_CONSTANTS = 
-{
+{   
+    /**
+     * The selected JWT to enroll with
+     */
+    'ZITI_JWT':             'ZITI_JWT',
+
+    /**
+     * The location of the Controller REST endpoint (as decoded from the JWT)
+     */
     'ZITI_CONTROLLER':      'ZITI_CONTROLLER',
+
+    /**
+     * The location of the Controller WS endpoint (as returned from /protocols)
+     */
+    'ZITI_CONTROLLER_WS':      'ZITI_CONTROLLER_WS',
+
+    /**
+     * The Identity certificate (produced during enrollment)
+     */
+    'ZITI_IDENTITY_CERT':   'ZITI_IDENTITY_CERT',
+
+    /**
+     * The Identity private key (generated locally during enrollment)
+     */
+    'ZITI_IDENTITY_KEY':    'ZITI_IDENTITY_KEY',
+
+    /**
+     * The Identity CA (retrived from Controller during enrollment)
+     */
+    'ZITI_IDENTITY_CA':     'ZITI_IDENTITY_CA',
 
     /**
      * The default timeout in milliseconds for connections and write operations to succeed.

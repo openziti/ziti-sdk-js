@@ -147,11 +147,31 @@ let ZitiControllerClient = (function() {
 
         headers = this.setAuthHeaders(headers);
         headers['Accept'] = ['application/pkcs7-mime'];
-        headers['Content-Type'] = ['application/json'];
 
         queryParameters = mergeQueryParams(parameters, queryParameters);
 
-        this.request('GET', domain + path, parameters, body, headers, queryParameters, form, deferred);
+        let method = 'GET';
+
+        const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
+        const urlWithParams = domain + path + (queryParams ? '?' + queryParams : '');
+
+        if (body && !Object.keys(body).length) {
+            body = undefined;
+        }
+
+        this.logger.trace('ZitiControllerClient: doing fetch to [%o]', urlWithParams);
+
+        realFetch(urlWithParams, {
+            method,
+            headers,
+            body: JSON.stringify(body)
+        }).then((response) => {
+            return response.blob();
+        }).then((blob) => {
+            deferred.resolve(blob.text());
+        }).catch((error) => {
+            deferred.reject(error);
+        });
 
         return deferred.promise;
     };
@@ -196,6 +216,34 @@ let ZitiControllerClient = (function() {
         let deferred = Q.defer();
         let domain = this.domain,
             path = '/version';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('GET', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Returns protocols information
+     * @method
+     * @name ZitiControllerClient#listProtocols
+     * @param {object} parameters - method options and parameters
+     */
+    ZitiControllerClient.prototype.listProtocols = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/protocols';
         let body = {},
             queryParameters = {},
             headers = {},
@@ -2598,15 +2646,38 @@ let ZitiControllerClient = (function() {
             form = {};
 
         headers['Accept'] = ['application/x-pem-file, application/json'];
-        headers['Content-Type'] = ['application/pkcs10,application/json,application/x-pem-file,text/plain'];
+        headers['Content-Type'] = ['text/plain'];
 
+        if (parameters['method'] !== undefined) {
+            queryParameters['method'] = parameters['method'];
+        }
         if (parameters['token'] !== undefined) {
             queryParameters['token'] = parameters['token'];
         }
 
+        if (parameters['body'] !== undefined) {
+            body = parameters['body'];
+        }
+
         queryParameters = mergeQueryParams(parameters, queryParameters);
 
-        this.request('POST', domain + path, parameters, body, headers, queryParameters, form, deferred);
+        const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
+
+        let method = 'POST';
+
+        const urlWithParams = domain + path + (queryParams ? '?' + queryParams : '');
+
+        this.logger.trace('ZitiControllerClient: doing enroll to [%o]', urlWithParams);
+
+        realFetch(urlWithParams, {
+            method,
+            headers,
+            body: body
+        }).then((response) => {
+            deferred.resolve(response);
+        }).catch((error) => {
+            deferred.reject(error);
+        });
 
         return deferred.promise;
     };
@@ -2664,7 +2735,8 @@ let ZitiControllerClient = (function() {
             headers = {},
             form = {};
 
-        headers['Accept'] = ['application/x-x509-user-cert'];
+        // headers['Accept'] = ['application/x-x509-user-cert'];
+        headers['Accept'] = ['application/json'];
         headers['Content-Type'] = ['application/pkcs10'];
 
         if (parameters['token'] !== undefined) {
@@ -2676,9 +2748,34 @@ let ZitiControllerClient = (function() {
             return deferred.promise;
         }
 
+        if (parameters['body'] !== undefined) {
+            body = parameters['body'];
+        }
+
         queryParameters = mergeQueryParams(parameters, queryParameters);
 
-        this.request('POST', domain + path, parameters, body, headers, queryParameters, form, deferred);
+        const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
+
+        let method = 'POST';
+
+        // this.request('POST', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        const urlWithParams = domain + path + (queryParams ? '?' + queryParams : '');
+
+        this.logger.trace('ZitiControllerClient: doing enroll to [%o]', urlWithParams);
+
+        realFetch(urlWithParams, {
+            method,
+            headers,
+            body: body
+        }).then((response) => {
+            return response.blob();
+        }).then((blob) => {
+            deferred.resolve(blob.text());
+        }).catch((error) => {
+            deferred.reject(error);
+        });
+
 
         return deferred.promise;
     };

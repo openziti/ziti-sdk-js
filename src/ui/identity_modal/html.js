@@ -35,7 +35,9 @@ exports.inject = () => {
                 <header class="modal__header">
                     <h2 class="modal__title" id="modal-1-title">
                     <img src="https://ziti-logo.s3.amazonaws.com/ziti-logo_avatar.png" width=25 >
-                    Identity Required
+                        <span>
+                            Enrollment Required
+                        </span>
                     </h2>
                     <button class="modal__close" aria-label="Close modal" data-micromodal-close></button>
                 </header>
@@ -59,15 +61,18 @@ exports.inject = () => {
                         </div>
                         </div>
                     </ytcp-uploads-file-picker-animation>
-                    <input type="file" id="upload" style="display:none" accept="application/JSON">
+                    <input type="file" id="upload" style="display:none" accept=".jwt">
                     </label>
                 
                     <p class="label style-scope ytcp-uploads-file-picker">
-                        Drag and drop a Ziti Identity file, or click above to select one from your computer.
+                        Drag and drop a Ziti Enrollment Token file, or click above to select one from your computer.
                     </p>
             
                     <div style="text-align: center;">
-                        <span id="ziti-identity-error" style="color: red;"></span> 
+                        <span id="ziti-identity-progress" style="color: green; font-weight: 800"></span> 
+                    </div>
+                    <div style="text-align: center;">
+                        <span id="ziti-identity-error" style="color: red; font-weight: 800"></span> 
                     </div>
             
                 </main>
@@ -76,7 +81,7 @@ exports.inject = () => {
                 </footer>
             
                 <p class="disclaimer style-scope ytcp-uploads-file-picker" >
-                    In order to access this application, you must be enrolled into the Ziti network and have a valid Ziti Identity.
+                    In order to access this application, you must be enrolled into the Ziti network.
                 </p>
                 </div>
             </div>
