@@ -2735,7 +2735,6 @@ let ZitiControllerClient = (function() {
             headers = {},
             form = {};
 
-        // headers['Accept'] = ['application/x-x509-user-cert'];
         headers['Accept'] = ['application/json'];
         headers['Content-Type'] = ['application/pkcs10'];
 
@@ -2757,8 +2756,6 @@ let ZitiControllerClient = (function() {
         const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
 
         let method = 'POST';
-
-        // this.request('POST', domain + path, parameters, body, headers, queryParameters, form, deferred);
 
         const urlWithParams = domain + path + (queryParams ? '?' + queryParams : '');
 
