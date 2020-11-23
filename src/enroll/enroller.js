@@ -146,10 +146,6 @@ ZitiEnroller.prototype._awaitJWTLoadFromFileSystemComplete = async function() {
     (function waitForJWTLoadFromFileSystemComplete() {
       self._rawJWT = ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
       if (self._rawJWT) {
-        // if (self._modalIsOpen) {
-        //   MicroModal.close('modal-1');
-        //   self._modalIsOpen = false;
-        // }
         return resolve(self._rawJWT);
       }
       self.logger.debug('_awaitJWTLoadFromFileSystemComplete() JWT still not loaded');
@@ -399,7 +395,7 @@ ZitiEnroller.prototype.generateKeyPair = async function() {
   return new Promise( async (resolve, reject) => {
 
     // Generate an RSA key pair in steps.
-    // We run for on 100ms at a time on the main JS thread, so as not to completely block JS execution in browser.
+    // We run for on 1000ms at a time on the main JS thread, so as not to completely block JS execution in browser.
     var state = forge.pki.rsa.createKeyPairGenerationState( privateKeySize );
 
     var step = function() {
