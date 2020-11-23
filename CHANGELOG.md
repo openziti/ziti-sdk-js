@@ -1,3 +1,12 @@
+# [0.7.0](https://github.com/openziti/ziti-sdk-js/compare/v0.6.3...v0.7.0) (2020-11-23)
+
+
+### Features
+
+* Enrollment ([#33](https://github.com/openziti/ziti-sdk-js/issues/33)) ([db6dc02](https://github.com/openziti/ziti-sdk-js/commit/db6dc0252701ffe3fa207f6da00cb159afd349af))
+
+
+
 ## [0.6.3](https://github.com/openziti/ziti-sdk-js/compare/v0.6.1...v0.6.3) (2020-11-15)
 
 
