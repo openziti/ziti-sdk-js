@@ -53,12 +53,12 @@ module.exports = class ZitiTLSConnection {
     this._connected = false;
 
 
-    // creates a CA store
-    this._caStore = forge.pki.createCaStore([ /* nothing for now */ ]);
+    // Pull CA from localStorage
+    this._caStore = forge.pki.createCaStore([ ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA) ]);
     
     // Pull keypair from localStorage
-    this._clientCertPEM       = ls.getWithExpiry(zitiConstants.get().ZITI_CLIENT_CERT_PEM);
-    this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_CLIENT_PRIVATE_KEY_PEM);
+    this._clientCertPEM       = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+    this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY);
 
     let self = this;      
 

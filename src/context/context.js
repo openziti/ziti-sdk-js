@@ -24,12 +24,12 @@ const consola               = require('consola');
 const find                  = require('lodash.find');
 const filter                = require('lodash.filter');
 const isEqual               = require('lodash.isequal');
+const isNull                = require('lodash.isnull');
 const minby                 = require('lodash.minby');
 const forEach               = require('lodash.foreach');
 const isUndefined           = require('lodash.isundefined');
 const result                = require('lodash.result');
 const has                   = require('lodash.has');
-const toNumber              = require('lodash.tonumber');
 const Mutex                 = require('async-mutex');
 const formatMessage         = require('format-message');
 
@@ -37,16 +37,13 @@ const utils                 = require('../utils/utils');
 const ls                    = require('../utils/localstorage');
 const edge_protocol         = require('../channel/protocol');
 const defaultOptions        = require('./options');
-const identityModalCSS      = require('../ui/identity_modal/css');
-const identityModalHTML     = require('../ui/identity_modal/html');
-const identityModalSelect   = require('../ui/identity_modal/select');
-const identityModalDragDrop = require('../ui/identity_modal/dragdrop');
 const zitiConstants         = require('../constants');
 const ZitiReporter          = require('../utils/ziti-reporter');
+const ZitiControllerClient  = require('../context/controller-client');
 const ZitiControllerWSClient  = require('./controller-ws-client');
-const ZitiControllerClient  = require('./controller-client');
 const ZitiChannel           = require('../channel/channel');
 const {throwIf}             = require('../utils/throwif');
+const ZitiEnroller          = require('../enroll/enroller');
 
 
 /**
@@ -83,41 +80,58 @@ function mixin(obj) {
 }
 
 
+ZitiContext.prototype.haveRequiredVariables = function(self) {
+  if (
+    isNull( self._ztAPI ) ||
+    isNull( self._ztWSAPI ) ||
+    isNull( self._IDENTITY_CERT ) ||
+    isNull( self._IDENTITY_KEY ) ||
+    isNull( self._IDENTITY_CA ) 
+  ) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 /**
- * Injects and opens the Modal dialog that prompts for the identity file.
+ * Load the Identity.
  *
  */
-ZitiContext.prototype.loadIdentity = async function() {
+ZitiContext.prototype.loadIdentity = async function(self) {
 
-  this._ztAPI = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
+  return new Promise( async (resolve, reject) => {
 
-  if (this._ztAPI) {
-    return;
-  }
+    // Load Identity variables from storage
+    self._ztAPI         = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
+    self._ztWSAPI       = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
+    self._IDENTITY_CERT = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+    self._IDENTITY_KEY  = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY);
+    self._IDENTITY_CA   = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
 
-  identityModalCSS.inject();
-  identityModalHTML.inject();
-  identityModalSelect.injectChangeHandler();
-  identityModalDragDrop.injectDragDropHandler();
+    // If Identity absent/expired...
+    if (! self.haveRequiredVariables(self) ) {
+      // ...then we need to enroll
+      let enroller = new ZitiEnroller(ZitiEnroller.prototype);
+      enroller.init({logger: self.logger});
+      await enroller.enroll().catch((e) => {
+        self.logger.error('Enrollment failed: [%o]', e);
+        localStorage.removeItem(zitiConstants.get().ZITI_JWT);
+        reject('Enrollment failed');
+        return;
+      });
 
+      // Now that enrollment completed successfully, reload Identity
+      self._ztAPI         = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
+      self._ztWSAPI       = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
+      self._IDENTITY_CERT = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+      self._IDENTITY_KEY  = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY);
+      self._IDENTITY_CA   = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
+    }
 
-  MicroModal.init({
-    onShow: modal => console.info(`${modal.id} is shown`), // [1]
-    onClose: modal => console.info(`${modal.id} is hidden`), // [2]
-    openTrigger: 'ziti-data-micromodal-trigger', // [3]
-    closeTrigger: 'data-custom-close', // [4]
-    openClass: 'is-open', // [5]
-    disableScroll: true, // [6]
-    disableFocus: false, // [7]
-    awaitOpenAnimation: false, // [8]
-    awaitCloseAnimation: true, // [9]
-    debugMode: false // [10]
+    resolve();
+
   });
-
-  MicroModal.show('modal-1');
-
-  this._modalIsOpen = true;
-
 }
 
 
@@ -130,18 +144,20 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
 
   let self = this;
 
-  this.loadIdentity();
+  await this.loadIdentity(self);
 
   return new Promise((resolve, reject) => {
     let startTime = new Date();
     (function waitForIdentityLoadComplete() {
-      self._ztAPI = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
-      if (self._ztAPI) {
-        if (self._modalIsOpen) {
-          MicroModal.close('modal-1');
-          self._modalIsOpen = false;
+      if (self.haveRequiredVariables(self)) {
+        self._ztAPI = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
+        if (self._ztAPI) {
+          if (self._modalIsOpen) {
+            MicroModal.close('modal-1');
+            self._modalIsOpen = false;
+          }
+          return resolve(self._ztAPI);
         }
-        return resolve(self._ztAPI);
       }
       self.logger.debug('awaitIdentityLoadComplete() identity still not loaded');
       let now = new Date();
@@ -185,12 +201,19 @@ ZitiContext.prototype.init = async function(options) {
     }
   })
 
-
   this._ztAPI = await this._awaitIdentityLoadComplete().catch((err) => {
-    this.logger.error(err);
-    throw err;
+    return;
   });
-  this.logger.debug('Controller URL from loaded Identity: [%o]', this._ztAPI);
+
+  this._controllerClient = new ZitiControllerClient({
+    domain: this._ztAPI,
+    logger: this.logger
+  });
+
+  // Get Controller version info
+  let res = await this._controllerClient.listVersion();
+  this._controllerVersion = res.data;
+  this.logger.info('Controller Version: [%o]', this._controllerVersion);
 
   this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
@@ -210,17 +233,11 @@ ZitiContext.prototype.init = async function(options) {
 
   this._controllerWSClient = new ZitiControllerWSClient({
     ctx: this,
-    domain: this._ztAPI,
+    domain: this._ztWSAPI,
     logger: this.logger
   });
 
   await this._controllerWSClient.connect();
-
-  // Get Controller version info
-  // let res = await this._controllerWSClient.listVersion();
-  // let ver = Buffer.from(res).toString()
-  // this._controllerVersion = res.data;
-  // this.logger.debug('Controller Version: [%o]', this._controllerVersion);
   
   // Get an API session with Controller
   res = await this._controllerWSClient.authenticate({
@@ -237,69 +254,17 @@ ZitiContext.prototype.init = async function(options) {
 
   // Set the token header on behalf of all subsequent Controller API calls
   this._controllerWSClient.setApiKey(this._apiSession.token, 'zt-session', false);
-
-  
-  // res = await this._controllerWSClient.listServices({ 
-  //   limit: '100' 
-  // });
-  // let resStr = Buffer.from(res).toString();
-  // // res = JSON.parse(Buffer.from(res).toString());
-  // res = JSON.parse(resStr);
-  // this._services = res.data;
-  // this.logger.debug('List of available Services acquired: [%o]', this._services);
-
-
-
-
-  // this._controllerClient = new ZitiControllerClient({
-  //   domain: this._ztAPI,
-  //   logger: this.logger
-  // });
-
-  // try {
-
-  //   // Get Controller version info
-  //   let res = await this._controllerClient.listVersion();
-  //   this._controllerVersion = res.data;
-  //   this.logger.debug('Controller Version: [%o]', this._controllerVersion);
-
-  //   // Get an API session with Controller
-  //   res = await this._controllerClient.authenticate({
-  //     method: 'cert',
-  //     body: { 
-  //       configTypes: [
-  //         'ziti-tunneler-client.v1'
-  //       ]
-  //      }
-  //   });
-  //   this._apiSession = res.data;
-  //   this.logger.debug('Controller API Session established: [%o]', this._apiSession);
-
-  //   // Set the token header on behalf of all subsequent Controller API calls
-  //   this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
-
-  //   this._sequence = 0;
-
-  // } catch (err) {
-  //   this.logger.error(err);
-  // }
-
 }
 
 
 ZitiContext.prototype.fetchServices = async function() {
   // Get list of active Services from Controller
-  // res = await this._controllerClient.listServices({ limit: '100' });
-  // this._services = res.data;
-  // this.logger.debug('List of available Services acquired: [%o]', this._services);
-
   res = await this._controllerWSClient.listServices({ 
     limit: '100' 
   });
   res = JSON.parse(Buffer.from(res).toString());
   this._services = res.data;
   this.logger.debug('List of available Services acquired: [%o]', this._services);
-
 }
 
 
@@ -413,15 +378,10 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
  * @returns {bool}
  */
 ZitiContext.prototype.close = async function(conn) {
-
   let ch = conn.getChannel();
-
   await ch.close(conn);
-
   ch._connections._deleteConnection(conn);
-
 }
-
 
 
 ZitiContext.prototype._getChannelForConnId = function(id) {
@@ -438,9 +398,7 @@ ZitiContext.prototype._getChannelForConnId = function(id) {
  * @returns {bool}
  */
 ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
-
   let parsedURL = utils.parseURL(url);
-
   return await this.getServiceNameByHostNameAndPort(parsedURL.hostname, parsedURL.port);
 }
 
@@ -452,6 +410,16 @@ ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
  */
 ZitiContext.prototype.getZtAPI = function() {
   return this._ztAPI;
+}
+
+
+/**
+ * Return current value of the ztWSAPI
+ *
+ * @returns {undefined | string}
+ */
+ZitiContext.prototype.getZtWSAPI = function() {
+  return this._ztWSAPI;
 }
 
 

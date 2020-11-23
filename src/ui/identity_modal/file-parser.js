@@ -14,20 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
+const jwt_decode = require('jwt-decode');
 const ls = require('../../utils/localstorage');
-const pkiUtil = require('../../utils/pki');
 const zitiConstants = require('../../constants');
-const error = require('./error');
 
-let ztAPI;
-let certPEM;
+let jwt = '';
 
-let chunkSize = 100;
-
-let state_need_ztAPI      = true;
-let state_need_certStart  = true;
-let state_need_certEnd    = true;
+let chunkSize = 1000;
 
 
 /**
@@ -69,71 +62,13 @@ exports.parse = (file) => {
   chunkReaderBlock(offset, chunkSize, file);
 }
 
-
 /**
- *	Parse the ztAPI from the chunk
- *
- * @param {string} chunk
- */  
-function extract_ztAPI(chunk) {
-  let re = /^.*\"ztAPI\"\:.*\"(.*)\"/gm;
-  let matches = re.exec(chunk);
-  if (matches != null) {
-    ztAPI = matches[1];
-    state_need_ztAPI = false;
-  }
-}
-
-
-/**
- *	Parse the (start of the) cert from the chunk
- *
- * @param {string} chunk
- */  
-function extract_certStart(chunk) {
-  let re = /^.*\"cert\"\:.*\"pem:(.*)/gm;
-  let matches = re.exec(chunk);
-  if (matches != null) {
-    certPEM = matches[1];
-    state_need_certStart = false;
-  }
-}
-
-
-/**
- *	Parse the (rest of the) cert from the chunk
- *
- * @param {string} chunk
- */  
-function extract_certEnd(chunk) {
-  let re = /^(.*)\\n"\,/s;
-  let matches = re.exec(chunk);
-  if (matches == null) {
-    certPEM += chunk;
-  } else {
-    certPEM += matches[1];
-    state_need_certEnd = false;
-  }
-}
-
-
-/**
- *	Dispatch the chunk depending on state of the parser
+ *	Dispatch the chunk
  *
  * @param {string} chunk
  */  
 function receiveFileChunk(chunk) {
-  if (state_need_ztAPI) {
-    extract_ztAPI(chunk);
-    return;
-  }
-  if (state_need_certStart) {
-    extract_certStart(chunk);
-    return;
-  }
-  if (state_need_certEnd) {
-    extract_certEnd(chunk);
-  }
+  jwt += chunk;
 }
 
 
@@ -143,24 +78,6 @@ function receiveFileChunk(chunk) {
  * @param {string} chunk
  */  
 function receiveEOF() {
-  if (state_need_ztAPI) {
-    error.setMessage('No value for [ztAPI] found in selected file');
-    return;
-  }
-  if (state_need_certEnd) {
-    error.setMessage('No value for [cert] found in selected file');
-    return;
-  }
-
-  let cert;
-  try {
-    cert = pkiUtil.convertPemToCertificate( certPEM.replace(/\\n/g, '\n') );
-  } catch (err) {
-    error.setMessage('[cert] in selected file cannot be parsed');
-    return;
-  }
-
-  ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER, ztAPI, pkiUtil.getExpiryTimeFromCertificate(cert));
-  ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER+'_dbg', ztAPI, pkiUtil.getExpiryStringFromCertificate(cert));
+  let decoded_jwt = jwt_decode(jwt);
+  ls.setWithExpiry(zitiConstants.get().ZITI_JWT, jwt, decoded_jwt.exp * 1000);
 }
-
