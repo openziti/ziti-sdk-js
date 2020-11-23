@@ -1,3 +1,12 @@
+## [0.7.1](https://github.com/openziti/ziti-sdk-js/compare/v0.7.0...v0.7.1) (2020-11-23)
+
+
+### Bug Fixes
+
+* improve error handling ([#35](https://github.com/openziti/ziti-sdk-js/issues/35)) ([45778c9](https://github.com/openziti/ziti-sdk-js/commit/45778c9fc3cf5f39de535f46bb8ee28d5d6df2a0))
+
+
+
 # [0.7.0](https://github.com/openziti/ziti-sdk-js/compare/v0.6.3...v0.7.0) (2020-11-23)
 
 
