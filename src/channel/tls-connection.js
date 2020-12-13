@@ -58,7 +58,7 @@ module.exports = class ZitiTLSConnection {
     
     // Pull keypair from localStorage
     this._clientCertPEM       = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-    this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY);
+    this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
 
     let self = this;      
 

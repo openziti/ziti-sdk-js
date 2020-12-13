@@ -43,9 +43,14 @@ const ZITI_CONSTANTS =
     'ZITI_IDENTITY_CERT':   'ZITI_IDENTITY_CERT',
 
     /**
+     * The Identity public key (generated locally during enrollment)
+     */
+    'ZITI_IDENTITY_PUBLIC_KEY':    'ZITI_IDENTITY_PUBLIC_KEY',
+
+    /**
      * The Identity private key (generated locally during enrollment)
      */
-    'ZITI_IDENTITY_KEY':    'ZITI_IDENTITY_KEY',
+    'ZITI_IDENTITY_PRIVATE_KEY':    'ZITI_IDENTITY_PRIVATE_KEY',
 
     /**
      * The Identity CA (retrived from Controller during enrollment)

@@ -2714,6 +2714,61 @@ let ZitiControllerClient = (function() {
         return deferred.promise;
     };
     /**
+     * Enroll an identity On-The-Fly. This enrollment method expects a PEM encoded CSR to be provided for fulfillment. 
+     * It is up to the enrolling identity to manage the private key backing the CSR request.
+     * @method
+     * @name ZitiControllerClient#enrollOtf
+     */
+    ZitiControllerClient.prototype.enrollOtf = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/enroll/otf';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers['Accept'] = ['application/x-x509-user-cert', 'application/x-pem-file, application/json'];
+        headers['Content-Type'] = ['application/x-pem-file'];
+    
+        if (parameters['method'] !== undefined) {
+            queryParameters['method'] = parameters['method'];
+        }
+        if (parameters['username'] !== undefined) {
+            queryParameters['username'] = parameters['username'];
+        }
+        if (parameters['body'] !== undefined) {
+            body = parameters['body'];
+        }
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
+
+        let method = 'POST';
+
+        const urlWithParams = domain + path + (queryParams ? '?' + queryParams : '');
+
+        this.logger.trace('ZitiControllerClient: doing enroll/otf to [%o]', urlWithParams);
+
+        realFetch(urlWithParams, {
+            method,
+            headers,
+            body: body
+        }).then((response) => {
+            return response.json();
+        }).then((body) => {
+            deferred.resolve(body);
+        }).catch((error) => {
+            deferred.reject(error);
+        });
+
+        return deferred.promise;
+    };
+    /**
      * Enroll an identity via a one-time-token which is supplied via a query string parameter. This enrollment method
     expects a PEM encoded CSRs to be provided for fulfillment. It is up to the enrolling identity to manage the
     private key backing the CSR request.

@@ -54,3 +54,20 @@ exports.getWithExpiry = (key) => {
 	}
 	return item.value
 }
+
+/**
+ *	Return value for specified key
+ *	or null if not found.
+ *
+ * @param {Object} key
+ * @return {Object} value
+ */  
+exports.get = (key) => {
+	const itemStr = localStorage.getItem(key)
+	// if the item doesn't exist, return null
+	if (!itemStr) {
+		return null
+	}
+	const item = JSON.parse(itemStr)
+	return item.value
+}

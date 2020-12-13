@@ -106,7 +106,7 @@ ZitiContext.prototype.loadIdentity = async function(self) {
     self._ztAPI         = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
     self._ztWSAPI       = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
     self._IDENTITY_CERT = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-    self._IDENTITY_KEY  = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY);
+    self._IDENTITY_KEY  = ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
     self._IDENTITY_CA   = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
 
     // If Identity absent/expired...
@@ -125,7 +125,7 @@ ZitiContext.prototype.loadIdentity = async function(self) {
       self._ztAPI         = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
       self._ztWSAPI       = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
       self._IDENTITY_CERT = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-      self._IDENTITY_KEY  = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY);
+      self._IDENTITY_KEY  = ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
       self._IDENTITY_CA   = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
     }
 

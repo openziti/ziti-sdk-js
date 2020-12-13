@@ -45,6 +45,7 @@ const {throwIf}             = require('../utils/throwif');
 const base64_url_decode     = require('./base64_url_decode');
 const pkiUtil               = require('../utils/pki');
 const Base64                = require('./base64');
+const pjson                 = require('../../package.json');
 
 
 /**
@@ -142,21 +143,23 @@ ZitiEnroller.prototype._awaitJWTLoadFromFileSystemComplete = async function() {
   this.loadJWTFromFileSystem();
 
   return new Promise((resolve, reject) => {
-    let startTime = new Date();
-    (function waitForJWTLoadFromFileSystemComplete() {
-      self._rawJWT = ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
-      if (self._rawJWT) {
-        return resolve(self._rawJWT);
-      }
-      self.logger.debug('_awaitJWTLoadFromFileSystemComplete() JWT still not loaded');
-      let now = new Date();
-      let elapsed = now.getTime() - startTime.getTime();
-      if (elapsed > 1000*60) {
-        return reject('JWT not specified');
-      } else {
-        setTimeout(waitForJWTLoadFromFileSystemComplete, 500);
-      }
-    })();
+    return resolve('foo');
+
+    // let startTime = new Date();
+    // (function waitForJWTLoadFromFileSystemComplete() {
+    //   self._rawJWT = ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
+    //   if (self._rawJWT) {
+    //     return resolve(self._rawJWT);
+    //   }
+    //   self.logger.debug('_awaitJWTLoadFromFileSystemComplete() JWT still not loaded');
+    //   let now = new Date();
+    //   let elapsed = now.getTime() - startTime.getTime();
+    //   if (elapsed > 1000*60) {
+    //     return reject('JWT not specified');
+    //   } else {
+    //     setTimeout(waitForJWTLoadFromFileSystemComplete, 500);
+    //   }
+    // })();
   });
 }
 
@@ -173,19 +176,47 @@ ZitiEnroller.prototype.enroll = async function() {
   });
   this.logger.debug('JWT loaded: [%o]', this._rawJWT);
 
-  this.loadJWTFromLocalStorage();
+  // this.loadJWTFromLocalStorage();
 
-  let keyPairPromise = this.generateKeyPair();  // initiate the (async) keypair calculation
+  let keyPairPromise;
+
+  if ( isNull( ls.get(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY) || ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY) )) {
+
+    keyPairPromise = this.generateKeyPair();  // initiate the (async) keypair calculation
+
+  }
 
   await this.getWellKnownCerts();
 
   this.parsePKCS7();
 
-  await keyPairPromise; // Don't proceed until keypair calculation has completed
+  if (!isUndefined( keyPairPromise )) {
+
+    let keys = await keyPairPromise; // Don't proceed until keypair calculation has completed
+
+    this._privateKey = keys.privateKey;
+    this._publicKey = keys.publicKey;
+
+    let privatePEM = forge.pki.privateKeyToPem(this._privateKey);
+    privatePEM = privatePEM.replaceAll(/\\n/g, '\n');
+    privatePEM = privatePEM.replaceAll('\r', '');
+    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
+
+    let publicPEM = forge.pki.publicKeyToPem(this._publicKey);
+    publicPEM = publicPEM.replaceAll(/\\n/g, '\n');
+    publicPEM = publicPEM.replaceAll('\r', '');
+    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY, publicPEM, new Date(8640000000000000));
+
+  } else {
+
+    this._privateKey = forge.pki.privateKeyFromPem( ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY) );
+    this._publicKey  = forge.pki.publicKeyFromPem(  ls.get(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY) );
+
+  }
 
   this.generateCSR();
 
-  await this.enrollOTT();
+  await this.enrollOTF();
 
   setTimeout(this._dismissModal, 5000);
 
@@ -195,6 +226,121 @@ ZitiEnroller.prototype._dismissModal = function() {
   MicroModal.close('modal-1');
   this._modalIsOpen = false;
 }
+
+/**
+ * 
+ *
+ */
+ZitiEnroller.prototype.enrollOTF = async function() {
+
+  error.setProgress('Transmitting Enroll Request');
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let controllerClient = new ZitiControllerClient({
+      domain: 'https://curt-edge-controller:1280',
+      logger: self.logger
+    });
+
+    // Get an API session with Controller
+    let res = await controllerClient.authenticate({
+
+      method: 'password',
+
+      body: { 
+
+        username: 'admin',
+        password: 'admin',
+
+        envInfo: {
+          arch: window.navigator.platform,    // e.g. 'MacIntel'
+          os: window.navigator.appVersion,    // e.g. '5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+        },
+        sdkInfo: {
+          // branch: "string",
+          // revision: "string",
+          type: 'ziti-sdk-js',
+          version: pjson.version
+        },
+      }
+    });
+    if (!isUndefined(res.error)) {
+      this.logger.error(res.error.message);
+      reject(res.error.message);
+      return;
+    }
+    this._apiSession = res.data;
+    this.logger.debug('Controller API Session established: [%o]', this._apiSession);
+
+    // Set the token header on behalf of all subsequent Controller API calls
+    controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
+    
+
+    let certPEM;
+
+    // Enroll the Identity
+    res = await controllerClient.enrollOtf({
+      method: 'otf',
+      username: 'admin',
+      // token: this._decoded_jwt.jti,
+      body:  this._csr
+    });
+    if (!isUndefined(res.error)) {
+      this.logger.error(res.error.message);
+      error.setMessage('ERROR: Enrollment failed - ' + res.error.message);
+      reject(res.error.message);
+      return;
+    }
+    error.setProgress('OTF Enrollment SUCCEEDED - This dialog will auto-dismiss in a few seconds');
+
+    certPEM = res.data.cert;
+
+    let flatcert = certPEM.replaceAll(/\\n/g, '\n');
+
+    let certificate;
+    try {
+      certificate = pkiUtil.convertPemToCertificate( flatcert );
+    } catch (err) {
+      self.logger.error('controllerClient.enroll returned cert [%o] which pkiUtil.convertPemToCertificate cannot process', certPEM);
+      reject('controllerClient.enroll returned cert which pkiUtil.convertPemToCertificate cannot process');
+    }
+
+    let expiryTime = pkiUtil.getExpiryTimeFromCertificate(certificate);
+
+    self.logger.trace('controllerClient.enroll returned cert: [%o] with expiryTime: [%o]', certPEM, expiryTime);
+
+    // let pk = forge.pki.privateKeyToPem(self._privateKey);
+    // pk = pk.replaceAll(/\\n/g, '\n');
+    // pk = pk.replaceAll('\r', '');
+    // ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, pk, expiryTime);
+
+    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);
+
+    let flatca = self._certChain.replaceAll(/\\n/g, '\n');
+    flatca = flatca.replaceAll('\r', '');
+    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA, flatca, expiryTime);
+
+    // ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER, self._decoded_jwt.iss, expiryTime);
+    ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER, 'https://curt-edge-controller:1280', expiryTime);
+
+    // Get Controller protocols info
+    res = await controllerClient.listProtocols();
+    self.logger.trace('controllerClient.listProtocols returned: [%o]', res);
+    if (isUndefined(res.data.ws)) {
+      reject('controllerClient.listProtocols data contains no "ws" section');
+    }
+    if (isUndefined(res.data.ws.address)) {
+      reject('controllerClient.listProtocols "ws" section contains no "address');
+    }
+    ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS, 'ws://' + res.data.ws.address , expiryTime);
+
+    resolve()
+
+  });
+}
+
 
 /**
  * 
@@ -230,7 +376,6 @@ ZitiEnroller.prototype.enrollOTT = async function() {
       return;
     } else {
       error.setProgress('Enrollment SUCCEEDED - This dialog will auto-dismiss in a few seconds');
-      debugger
       let blob = await response.blob();
       certPEM = await blob.text();
     }  
@@ -252,7 +397,7 @@ ZitiEnroller.prototype.enrollOTT = async function() {
     let pk = forge.pki.privateKeyToPem(self._privateKey);
     pk = pk.replaceAll(/\\n/g, '\n');
     pk = pk.replaceAll('\r', '');
-    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY, pk, expiryTime);
+    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, pk, expiryTime);
 
     ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);
 
@@ -312,7 +457,8 @@ ZitiEnroller.prototype.getWellKnownCerts = async function() {
   return new Promise( async (resolve, reject) => {
 
     let controllerClient = new ZitiControllerClient({
-      domain: self._decoded_jwt.iss,
+      // domain: self._decoded_jwt.iss,
+      domain: 'https://curt-edge-controller:1280',
       logger: self.logger
     });
 
@@ -415,7 +561,7 @@ ZitiEnroller.prototype.generateKeyPair = async function() {
 
         error.setProgress('KeyPair Generation Complete');
 
-        resolve()
+        resolve(state.keys)
       }
     };
 
@@ -435,10 +581,12 @@ ZitiEnroller.prototype.generateCSR = function(binaryData, label) {
   csr.setSubject([
     {
       name: 'commonName',
-      value: this._decoded_jwt.sub
+      // value: this._decoded_jwt.sub
+      value: 'OTF'
     }, {
       name: 'description',
-      value: this._decoded_jwt.iss
+      // value: this._decoded_jwt.iss
+      value: 'OTF CSR'
     }, {
       name: 'countryName',
       value: 'US'
