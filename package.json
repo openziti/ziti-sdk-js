@@ -83,7 +83,7 @@
     "@types/lodash.isnull": "^3.0.6",
     "asn1js": "^2.0.26",
     "assert": "^2.0.0",
-    "async-mutex": "^0.2.4",
+    "async-mutex": "^0.3.0",
     "buffer": "^5.6.1",
     "chnl": "^1.2.0",
     "consola": "^2.15.0",
