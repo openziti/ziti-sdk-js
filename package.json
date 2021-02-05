@@ -64,7 +64,7 @@
     "babelify": "^10.0.0",
     "browserify": "^16.5.2",
     "cross-env": "^7.0.2",
-    "karma": "^5.2.3",
+    "karma": "^6.1.0",
     "karma-browserify": "^7.0.0",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage": "^2.0.3",
