@@ -19,7 +19,7 @@ limitations under the License.
  */
 
 const flatOptions           = require('flat-options');
-const MicroModal            = require('micromodal');
+// const MicroModal            = require('micromodal');
 const isEqual               = require('lodash.isequal');
 const isUndefined           = require('lodash.isundefined');
 const forEach               = require('lodash.foreach');
@@ -34,17 +34,20 @@ var asn1 = forge.asn1;
 
 const ls                    = require('../utils/localstorage');
 const defaultOptions        = require('./options');
-const identityModalCSS      = require('../ui/identity_modal/css');
-const identityModalHTML     = require('../ui/identity_modal/html');
-const identityModalSelect   = require('../ui/identity_modal/select');
-const identityModalDragDrop = require('../ui/identity_modal/dragdrop');
-const error                 = require('../ui/identity_modal/error');
+const ZitiUPDB              = require('../updb/updb');
+// const identityModalCSS      = require('../ui/identity_modal/css');
+// const identityModalHTML     = require('../ui/identity_modal/html');
+// const identityModalSelect   = require('../ui/identity_modal/select');
+// const identityModalDragDrop = require('../ui/identity_modal/dragdrop');
+// const identityModalLogin    = require('../ui/identity_modal/login');
+// const error                 = require('../ui/identity_modal/error');
 const zitiConstants         = require('../constants');
 const ZitiControllerClient  = require('../context/controller-client');
 const {throwIf}             = require('../utils/throwif');
 const base64_url_decode     = require('./base64_url_decode');
 const pkiUtil               = require('../utils/pki');
 const Base64                = require('./base64');
+const pjson                 = require('../../package.json');
 
 
 /**
@@ -89,6 +92,7 @@ function mixin(obj) {
  */
 ZitiEnroller.prototype.init = async function(options) {
   let _options = flatOptions(options, defaultOptions);
+  this.ctx = _options.ctx;
   this.logger = _options.logger;
 }
 
@@ -99,16 +103,29 @@ ZitiEnroller.prototype.init = async function(options) {
  */
 ZitiEnroller.prototype.loadJWTFromFileSystem = async function() {
 
-  this._rawJWT = ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
+  let self = this;
 
-  if (!isNull( this._rawJWT )) {
-    return this._rawJWT;
+  if (this._modalIsOpen) {
+    return;
   }
+
+  // this._rawJWT = await ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
+
+  // if (!isNull( this._rawJWT )) {
+    // return this._rawJWT;
+  // }
+
+  /* below was moved to UPDB
 
   identityModalCSS.inject();
   identityModalHTML.inject();
-  identityModalSelect.injectChangeHandler();
-  identityModalDragDrop.injectDragDropHandler();
+  this._loginFormValues = undefined;
+  identityModalLogin.injectButtonHandler(function( results ) { 
+    self._loginFormValues = results;
+    self.logger.debug('Login Form cb(): results [%o]', results);
+  });
+  // identityModalSelect.injectChangeHandler();
+  // identityModalDragDrop.injectDragDropHandler();
 
 
   MicroModal.init({
@@ -124,85 +141,416 @@ ZitiEnroller.prototype.loadJWTFromFileSystem = async function() {
     debugMode: false // [10]
   });
 
-  MicroModal.show('modal-1');
+  MicroModal.show('ziti-updb-modal');
 
   this._modalIsOpen = true;
+  */
 }
 
 
 /**
- * Return a Promise that will resolve as soon as we have read in the JWT from file system.
+ * Return a Promise that will resolve as soon as we have acquired login creds from the UI.
  *
  * @returns {Promise}   
  */
-ZitiEnroller.prototype._awaitJWTLoadFromFileSystemComplete = async function() {
+ZitiEnroller.prototype._awaitLoginFormComplete = async function() {
+
+  this.logger.debug('enroll._awaitLoginFormComplete() starting');
 
   let self = this;
 
   this.loadJWTFromFileSystem();
 
   return new Promise((resolve, reject) => {
-    let startTime = new Date();
+
+    //TEMP
+    // self._loginFormValues = { username: 'admin', password: 'admin' };    
+    //TEMP
+
+
     (function waitForJWTLoadFromFileSystemComplete() {
-      self._rawJWT = ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
-      if (self._rawJWT) {
-        return resolve(self._rawJWT);
+      if (self._loginFormValues) {
+        return resolve(self._loginFormValues);
       }
-      self.logger.debug('_awaitJWTLoadFromFileSystemComplete() JWT still not loaded');
-      let now = new Date();
-      let elapsed = now.getTime() - startTime.getTime();
-      if (elapsed > 1000*60) {
-        return reject('JWT not specified');
-      } else {
-        setTimeout(waitForJWTLoadFromFileSystemComplete, 500);
-      }
+      self.logger.debug('_awaitLoginFormComplete() _loginFormValues still not present');
+      setTimeout(waitForJWTLoadFromFileSystemComplete, 500);
     })();
+
   });
 }
 
 
 /**
- * Loads the JWT from local storage.
+ * Return a Promise that will resolve as soon as we have gotten login creds from the UI and those creds 
+ * have been used to successfully acquire an API session.
  *
+ * @returns {Promise}   
  */
-ZitiEnroller.prototype.enroll = async function() {
+ZitiEnroller.prototype._awaitHaveAPISession = async function() {
 
-  this._rawJWT = await this._awaitJWTLoadFromFileSystemComplete().catch((err) => {
-    this.logger.error(err);
-    throw err;
+  let self = this;
+
+  return new Promise(async (resolve, reject) => {
+
+    self.logger.debug('enroll._awaitHaveAPISession() starting');
+
+    //
+    let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+    if (!isNull(apisess)) {
+      self.ctx._apiSession = apisess;
+    }
+
+    let updb = new ZitiUPDB(ZitiUPDB.prototype);
+    await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+  
+    while (isUndefined( self.ctx._apiSession )) {
+
+      // Don't proceed until we have gotten login creds from UI
+      self._loginFormValues = await updb.awaitLoginFormComplete();  // await user creds input
+
+      self.logger.debug('login Form submitted: creds are [%o]', self._loginFormValues);
+    
+      // Establish an API session with Controller
+      await self.getAPISession( self ).catch((err) => {
+        self._loginFormValues = undefined;
+      });
+    
+    }
+
+    self.logger.debug('API session acquired: token is [%o]', self.ctx._apiSession.token);
+
+    resolve();
+
   });
-  this.logger.debug('JWT loaded: [%o]', this._rawJWT);
-
-  this.loadJWTFromLocalStorage();
-
-  let keyPairPromise = this.generateKeyPair();  // initiate the (async) keypair calculation
-
-  await this.getWellKnownCerts();
-
-  this.parsePKCS7();
-
-  await keyPairPromise; // Don't proceed until keypair calculation has completed
-
-  this.generateCSR();
-
-  await this.enrollOTT();
-
-  setTimeout(this._dismissModal, 5000);
-
 }
 
-ZitiEnroller.prototype._dismissModal = function() {
-  MicroModal.close('modal-1');
-  this._modalIsOpen = false;
-}
 
 /**
  * 
  *
  */
+ZitiEnroller.prototype.enroll = async function() {
+
+  let self = this;
+  let keyPairPromise;
+
+  self.logger.debug('enroll() starting');
+
+  let publicKey = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY);
+  let privateKey = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+
+  // If there is no keypair currently in the browZer, then start creating it in the background
+  if ( isUndefined( publicKey ) || isUndefined( privateKey ) || isNull( publicKey ) || isNull( privateKey )) {
+    self.logger.debug('No keypair present, initiating generation now');
+    keyPairPromise = this.generateKeyPair();  // initiate the (async) keypair calculation
+  }
+
+  // Don't proceed until we have successfully logged in to Controller and have established an API session
+  await this._awaitHaveAPISession().catch((err) => {
+    self.logger.error(err);
+    reject(err);
+  });
+  
+  // Obtain, then parse, the Controller's "well known certs"
+  // await this.getWellKnownCerts();
+  // this.parsePKCS7();
+
+  // If we are cooking a keypair
+  if (!isUndefined( keyPairPromise )) {
+
+    let keys = await keyPairPromise; // Don't proceed until keypair calculation has completed
+
+    // this._privateKey = keys.privateKey;
+    // this._publicKey = keys.publicKey;
+
+    // let privatePEM = forge.pki.privateKeyToPem(this._privateKey);
+    // privatePEM = privatePEM.replaceAll(/\\n/g, '\n');
+    // privatePEM = privatePEM.replaceAll('\r', '');
+    // ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
+
+    // let publicPEM = forge.pki.publicKeyToPem(this._publicKey);
+    // publicPEM = publicPEM.replaceAll(/\\n/g, '\n');
+    // publicPEM = publicPEM.replaceAll('\r', '');
+    // ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY, publicPEM, new Date(8640000000000000));
+
+  } else {
+
+    this._privateKey = forge.pki.privateKeyFromPem( await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY) );
+    this._publicKey  = forge.pki.publicKeyFromPem(  await ls.get(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY) );
+
+  }
+
+  this.generateCSR();
+
+  await this.createEphemeralCert();
+
+  // setTimeout(this._dismissModal, 5000);
+  // MicroModal.close('ziti-updb-modal');
+  // this._modalIsOpen = false;
+
+}
+
+// ZitiEnroller.prototype._dismissModal = function() {
+  // MicroModal.close('ziti-updb-modal');
+  // this._modalIsOpen = false;
+// }
+
+
+/**
+ * 
+ *
+ */
+ZitiEnroller.prototype.getAPISession = async function( who ) {
+
+  // error.setProgress('Transmitting Authenticate Request');
+
+  let self = who;
+
+  return new Promise( async (resolve, reject) => {
+
+    // Get an API session with Controller
+    let res = await self.ctx._controllerClient.authenticate({
+
+      method: 'password',
+
+      body: { 
+
+        username: self._loginFormValues.username,
+        password: self._loginFormValues.password,
+
+        configTypes: [
+          'ziti-tunneler-client.v1'
+        ],
+
+        envInfo: {
+          arch: window.navigator.platform,    // e.g. 'MacIntel'
+          os: window.navigator.appVersion,    // e.g. '5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+        },
+        sdkInfo: {
+          // branch: "string",
+          // revision: "string",
+          type: 'ziti-sdk-js',
+          version: pjson.version
+        },
+      }
+    });
+
+    if (!isUndefined(res.error)) {
+      self.logger.error(res.error.message);
+      // error.setMessage('ERROR: ' + res.error.message);
+      // error.setProgress('');
+      reject(res.error.message);
+      return;
+    }
+
+    self.ctx._apiSession = res.data;
+    self.logger.debug('Controller API Session established: [%o]', self.ctx._apiSession);
+
+    // Set the token header on behalf of all subsequent Controller API calls
+    self.ctx._controllerClient.setApiKey(self.ctx._apiSession.token, 'zt-session', false);
+
+    //
+    await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self.ctx._apiSession, new Date(8640000000000000));
+
+    resolve()
+
+  });
+}
+
+
+/**
+ * 
+ */
+ZitiEnroller.prototype.createEphemeralCert = async function() {
+
+  // error.setProgress('Obtaining Ephemeral Cert');
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    res = await self.ctx._controllerClient.createCurrentApiSessionCertificate({
+      body: { 
+        csr:  this._csr
+      }
+    });
+    if (!isUndefined(res.error)) {
+      this.logger.error(res.error.message);
+      // error.setMessage('ERROR: Ephemeral Cert creation failed - ' + res.error.message);
+      reject(res.error.message);
+      return;
+    }
+    if (isUndefined(res.data.certificate)) {
+      this.logger.error('cert not returned in response from detailCurrentApiSessionCertificate');
+      // error.setMessage('ERROR: Ephemeral Cert creation failed');
+      reject('Ephemeral Cert creation failed');
+      return;
+    }
+
+    let certPEM = res.data.certificate;
+
+    let flatcert = certPEM.replaceAll(/\\n/g, '\n');
+
+    let certificate;
+    try {
+      certificate = pkiUtil.convertPemToCertificate( flatcert );
+    } catch (err) {
+      self.logger.error('controllerClient.createCurrentApiSessionCertificate returned cert [%o] which pkiUtil.convertPemToCertificate cannot process', certPEM);
+      reject('controllerClient.createCurrentApiSessionCertificate returned cert which pkiUtil.convertPemToCertificate cannot process');
+    }
+
+    let expiryTime = pkiUtil.getExpiryTimeFromCertificate(certificate);
+
+    self.logger.trace('controllerClient.createCurrentApiSessionCertificate returned cert: [%o] with expiryTime: [%o]', certPEM, expiryTime);
+
+    await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);
+
+    // error.setProgress('Ephemeral Cert creation SUCCEEDED - This dialog will auto-dismiss in a few seconds');
+
+
+    // Get Controller protocols info
+    // res = await self.ctx._controllerClient.listProtocols();
+    // self.logger.trace('controllerClient.listProtocols returned: [%o]', res);
+    // if (isUndefined(res.data.ws)) {
+    //   reject('controllerClient.listProtocols data contains no "ws" section');
+    // }
+    // if (isUndefined(res.data.ws.address)) {
+    //   reject('controllerClient.listProtocols "ws" section contains no "address');
+    // }
+    // await ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS, 'ws://' + res.data.ws.address , expiryTime);
+    
+    resolve()
+
+  });
+}
+
+
+/**
+ * 
+ *
+ */
+ZitiEnroller.prototype.enrollOTF = async function() {
+
+  // error.setProgress('Transmitting Enroll Request');
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    /*
+    let controllerClient = new ZitiControllerClient({
+      domain: window.zitiConfig.controller.api, // set in HTML of web app that embeds ziti-sdk-js
+      logger: self.logger
+    });
+
+    // Get an API session with Controller
+    let res = await controllerClient.authenticate({
+
+      method: 'password',
+
+      body: { 
+
+        username: self._loginFormValues.username,
+        password: self._loginFormValues.password,
+
+        envInfo: {
+          arch: window.navigator.platform,    // e.g. 'MacIntel'
+          os: window.navigator.appVersion,    // e.g. '5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+        },
+        sdkInfo: {
+          // branch: "string",
+          // revision: "string",
+          type: 'ziti-sdk-js',
+          version: pjson.version
+        },
+      }
+    });
+    if (!isUndefined(res.error)) {
+      this.logger.error(res.error.message);
+      reject(res.error.message);
+      return;
+    }
+    this._apiSession = res.data;
+    this.logger.debug('Controller API Session established: [%o]', this._apiSession);
+
+    // Set the token header on behalf of all subsequent Controller API calls
+    controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
+    */
+    
+
+    let certPEM;
+
+    // Enroll the Identity
+    res = await self.ctx._controllerClient.enrollOtf({
+      method: 'otf',
+      username: self._loginFormValues.username,
+      // token: this._decoded_jwt.jti,
+      body:  this._csr
+    });
+    if (!isUndefined(res.error)) {
+      this.logger.error(res.error.message);
+      // error.setMessage('ERROR: Enrollment failed - ' + res.error.message);
+      reject(res.error.message);
+      return;
+    }
+    // error.setProgress('OTF Enrollment SUCCEEDED - This dialog will auto-dismiss in a few seconds');
+
+    certPEM = res.data.cert;
+
+    let flatcert = certPEM.replaceAll(/\\n/g, '\n');
+
+    let certificate;
+    try {
+      certificate = pkiUtil.convertPemToCertificate( flatcert );
+    } catch (err) {
+      self.logger.error('controllerClient.enroll returned cert [%o] which pkiUtil.convertPemToCertificate cannot process', certPEM);
+      reject('controllerClient.enroll returned cert which pkiUtil.convertPemToCertificate cannot process');
+    }
+
+    let expiryTime = pkiUtil.getExpiryTimeFromCertificate(certificate);
+    await ls.setWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME, expiryTime, expiryTime);
+
+    self.logger.trace('controllerClient.enroll returned cert: [%o] with expiryTime: [%o]', certPEM, expiryTime);
+
+    // let pk = forge.pki.privateKeyToPem(self._privateKey);
+    // pk = pk.replaceAll(/\\n/g, '\n');
+    // pk = pk.replaceAll('\r', '');
+    // await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, pk, expiryTime);
+
+    await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);
+
+    // let flatca = self._certChain.replaceAll(/\\n/g, '\n');
+    // flatca = flatca.replaceAll('\r', '');
+    // await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA, flatca, expiryTime);
+
+    // await ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER, self._decoded_jwt.iss, expiryTime);
+    await ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER, window.zitiConfig.controller.api, expiryTime);
+
+    // Get Controller protocols info
+    res = await self.ctx._controllerClient.listProtocols();
+    self.logger.trace('controllerClient.listProtocols returned: [%o]', res);
+    if (isUndefined(res.data.ws)) {
+      reject('controllerClient.listProtocols data contains no "ws" section');
+    }
+    if (isUndefined(res.data.ws.address)) {
+      reject('controllerClient.listProtocols "ws" section contains no "address');
+    }
+    await ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS, 'ws://' + res.data.ws.address , expiryTime);
+
+    resolve()
+
+  });
+}
+
+
+/**
+ * 
+ *
+ */
+/*
 ZitiEnroller.prototype.enrollOTT = async function() {
 
-  error.setProgress('Transmitting Enroll Request');
+  // error.setProgress('Transmitting Enroll Request');
 
   let self = this;
 
@@ -224,13 +572,12 @@ ZitiEnroller.prototype.enrollOTT = async function() {
 
     if (!response.ok) {
       let json = await response.json();
-      error.setMessage('ERROR: Enrollment failed - ' + json.error.message);
-      error.setProgress();
+      // error.setMessage('ERROR: Enrollment failed - ' + json.error.message);
+      // error.setProgress();
       reject(json);
       return;
     } else {
-      error.setProgress('Enrollment SUCCEEDED - This dialog will auto-dismiss in a few seconds');
-      debugger
+      // error.setProgress('Enrollment SUCCEEDED - This dialog will auto-dismiss in a few seconds');
       let blob = await response.blob();
       certPEM = await blob.text();
     }  
@@ -252,7 +599,7 @@ ZitiEnroller.prototype.enrollOTT = async function() {
     let pk = forge.pki.privateKeyToPem(self._privateKey);
     pk = pk.replaceAll(/\\n/g, '\n');
     pk = pk.replaceAll('\r', '');
-    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_KEY, pk, expiryTime);
+    ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, pk, expiryTime);
 
     ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);
 
@@ -277,6 +624,7 @@ ZitiEnroller.prototype.enrollOTT = async function() {
 
   });
 }
+*/
 
 
 /**
@@ -285,7 +633,7 @@ ZitiEnroller.prototype.enrollOTT = async function() {
  */
 ZitiEnroller.prototype.loadJWTFromLocalStorage = async function() {
 
-  this._rawJWT = ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
+  this._rawJWT = await ls.getWithExpiry(zitiConstants.get().ZITI_JWT);
 
   this._decoded_jwt = jwt_decode(this._rawJWT);
   this.logger.debug('decoded JWT: %o', this._decoded_jwt);
@@ -305,14 +653,14 @@ ZitiEnroller.prototype.loadJWTFromLocalStorage = async function() {
  */
 ZitiEnroller.prototype.getWellKnownCerts = async function() {
 
-  error.setProgress('starting fetch of Controller well-known certs');
+  // error.setProgress('starting fetch of Controller well-known certs');
 
   let self = this;
 
   return new Promise( async (resolve, reject) => {
 
     let controllerClient = new ZitiControllerClient({
-      domain: self._decoded_jwt.iss,
+      domain: window.zitiConfig.controller.api, // set in HTML of web app that embeds ziti-sdk-js
       logger: self.logger
     });
 
@@ -320,7 +668,7 @@ ZitiEnroller.prototype.getWellKnownCerts = async function() {
     self._wellKnownCerts = await controllerClient.listWellKnownCas()
     self.logger.trace('Controller well-known certs: [%o]', self._wellKnownCerts);
 
-    error.setProgress('Controller well-known certs obtained');
+    // error.setProgress('Controller well-known certs obtained');
 
     resolve()
 
@@ -388,23 +736,27 @@ ZitiEnroller.prototype.generateKeyPair = async function() {
 
   let tick = 1;
 
-  error.setProgress('Starting KeyPair Generation');
+  // error.setProgress('Starting KeyPair Generation');
+  console.log('Starting KeyPair Generation');
 
   let self = this;
 
   return new Promise( async (resolve, reject) => {
 
     // Generate an RSA key pair in steps.
-    // We run for on 1000ms at a time on the main JS thread, so as not to completely block JS execution in browser.
+    // We run for a few ms at a time on the main JS thread, so as not to completely block JS execution in browser.
     var state = forge.pki.rsa.createKeyPairGenerationState( privateKeySize );
 
-    var step = function() {
+    var step = async function() {
 
-      if(!forge.pki.rsa.stepKeyPairGenerationState(state, 1000)) {
+      if(!forge.pki.rsa.stepKeyPairGenerationState( state, 100 )) {
 
-        self.logger.trace('keypair generation tick... [%o]', state);
+        // self.logger.trace('keypair generation tick... [%o]', state);
+        console.log('keypair generation tick... ', state);
 
-        error.setProgress('Generating keypair for your Identity, please stand by... progress[' + tick++ + ']');
+        if ((tick++ % 20) == 0) {
+          // error.setProgress('Generating keypair for your Identity, please stand by... progress[' + tick + ']');
+        }
 
         setTimeout(step, 1);
       
@@ -413,9 +765,20 @@ ZitiEnroller.prototype.generateKeyPair = async function() {
         self._privateKey = state.keys.privateKey
         self._publicKey = state.keys.publicKey
 
-        error.setProgress('KeyPair Generation Complete');
+        let privatePEM = forge.pki.privateKeyToPem(self._privateKey);
+        privatePEM = privatePEM.replaceAll(/\\n/g, '\n');
+        privatePEM = privatePEM.replaceAll('\r', '');
+        await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
+    
+        let publicPEM = forge.pki.publicKeyToPem(self._publicKey);
+        publicPEM = publicPEM.replaceAll(/\\n/g, '\n');
+        publicPEM = publicPEM.replaceAll('\r', '');
+        await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY, publicPEM, new Date(8640000000000000));    
 
-        resolve()
+        // error.setProgress('KeyPair Generation Complete');
+        console.log('KeyPair Generation Complete');
+
+        resolve(state.keys)
       }
     };
 
@@ -435,10 +798,12 @@ ZitiEnroller.prototype.generateCSR = function(binaryData, label) {
   csr.setSubject([
     {
       name: 'commonName',
-      value: this._decoded_jwt.sub
+      // value: this._decoded_jwt.sub
+      value: 'OTF'
     }, {
       name: 'description',
-      value: this._decoded_jwt.iss
+      // value: this._decoded_jwt.iss
+      value: 'OTF CSR'
     }, {
       name: 'countryName',
       value: 'US'

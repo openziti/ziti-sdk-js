@@ -50,7 +50,12 @@ function HttpResponse(body = null, opts = {}) {
 	const headers = new Headers(opts.headers)
 
 	if (body != null && !headers.has('Content-Type')) {
-		const contentType = extractContentType(body);
+		let contentType;
+		try {
+			contentType = extractContentType(body);
+		} catch (err) {
+			// Sometimes we see this on 401 responses, so just ignore exception
+		}
 		if (contentType) {
 			headers.append('Content-Type', contentType);
 		}

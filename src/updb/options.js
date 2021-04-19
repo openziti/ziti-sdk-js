@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 
+const LogLevel    = require('../logLevels');
+
 /**
  * Default options.
  */
@@ -33,5 +35,11 @@ module.exports = {
      *
      */
     logger: null,
+
+    /**
+     * See {@link Options.logLevel}
+     *
+     */
+    logLevel: LogLevel.Trace,
 
   };

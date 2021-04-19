@@ -22,13 +22,17 @@ limitations under the License.
  * All spec algorithm step numbers are based on https://fetch.spec.whatwg.org/commit-snapshots/ae716822cb3a61843226cd090eefc6589446c1d2/.
  */
 
-// import Stream from 'stream';
+const Cookies = require('js-cookie');
 const HttpHeaders = require('./headers.js');
 const HttpBody = require('./body');
+const ls = require('../utils/localstorage');
+const zitiConstants = require('../constants');
+const isNull = require('lodash.isnull');
 const clone = HttpBody.clone;
-const extractContentType = HttpBody.extractContentType;
+// const extractContentType = HttpBody.extractContentType;
 // const getTotalBytes = HttpBody.getTotalBytes;
 var pjson = require('../../package.json');
+const isUndefined = require('lodash.isundefined');
 
 
 const INTERNALS = Symbol('HttpRequest internals');
@@ -55,30 +59,8 @@ function isRequest(input) {
  * @return  Object
  */
 function parseURL(url) {
-    var parser = document.createElement('a'),
-        searchObject = {},
-		queries, split, i;
-		
-    // Let the browser do the work
-	parser.href = url;
-	
-    // Convert query string to object
-    queries = parser.search.replace(/^\?/, '').split('&');
-    for( i = 0; i < queries.length; i++ ) {
-        split = queries[i].split('=');
-        searchObject[split[0]] = split[1];
-	}
-	
-    return {
-        protocol: parser.protocol,
-        host: parser.host,
-        hostname: parser.hostname,
-        port: parser.port,
-        pathname: parser.pathname,
-        search: parser.search,
-        searchObject: searchObject,
-        hash: parser.hash
-    };
+	let parsedUrl = new URL( url );
+	return parsedUrl;
 }
 
 
@@ -143,7 +125,7 @@ function HttpRequest(serviceNameOrConn, input, init = {}) {
 	const headers = new HttpHeaders(init.headers || input.headers || {});
 
 	if (inputBody != null && !headers.has('Content-Type')) {
-		const contentType = extractContentType(inputBody);
+		const contentType = this.extractContentType(inputBody);
 		if (contentType) {
 			headers.append('Content-Type', contentType);
 		}
@@ -205,7 +187,7 @@ HttpRequest.prototype.getParsedURL = function() {
 	return this[INTERNALS].parsedURL;
 }
 
-HttpRequest.prototype.getRequestOptions = function() {
+HttpRequest.prototype.getRequestOptions = async function() {
 	const parsedURL = this[INTERNALS].parsedURL;
 	const headers = this[INTERNALS].headers;
 
@@ -232,7 +214,36 @@ HttpRequest.prototype.getRequestOptions = function() {
 		throw new Error('Only HTTP(S) protocols are supported');
 	}
 
-	headers.set('Host', parsedURL.host);
+	headers.set('Host', parsedURL.hostname + ":" + parsedURL.port);
+
+	let cookies = Cookies.get();
+
+	let cookieValue = '';
+	for (const cookie in cookies) {
+        if (cookies.hasOwnProperty(cookie)) {
+			cookieValue += cookie + '=' + cookies[cookie] + ';';
+		}
+	}
+	if (!isUndefined(cookies)) {
+		if (cookieValue !== '') {
+			headers.set('Cookie', cookieValue);
+		}
+	} else {
+
+		let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+
+		if (!isNull(zitiCookies)) {
+
+			for (const cookie in zitiCookies) {
+				if (zitiCookies.hasOwnProperty(cookie)) {
+					cookieValue += cookie + '=' + zitiCookies[cookie] + ';';
+				}
+			}
+
+			headers.set('Cookie', cookieValue);
+		
+		}
+	}
 
 
 	// HTTP-network-or-cache fetch steps 2.4-2.7
@@ -271,7 +282,7 @@ HttpRequest.prototype.getRequestOptions = function() {
 	// 	headers.set('Connection', 'keep-alive');
 	// }
 
-	return Object.assign({}, parsedURL, {
+	let obj = Object.assign({}, {
 		serviceName: this.getServiceName(),
 		conn: this.getConn(),
 		method: this.getMethod(),
@@ -279,6 +290,21 @@ HttpRequest.prototype.getRequestOptions = function() {
 		body: this.body,
 	});
 
+	for( var key in parsedURL) {
+		obj[key] = parsedURL[key];
+	}
+	obj.path = obj.pathname;
+
+	return obj;
+
+
+	// return Object.assign({}, parsedURL, {
+	// 	serviceName: this.getServiceName(),
+	// 	conn: this.getConn(),
+	// 	method: this.getMethod(),
+	// 	headers: headers,
+	// 	body: this.body,
+	// });
 }
 
 HttpBody.mixIn(HttpRequest.prototype);

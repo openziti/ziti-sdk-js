@@ -84,7 +84,9 @@ let ZitiControllerClient = (function() {
 
         this.logger.trace('ZitiControllerClient: doing fetch to [%o]', urlWithParams);
 
-        realFetch(urlWithParams, {
+        let fetchFunc = (typeof realFetch !== 'undefined') ? realFetch : fetch;
+
+        fetchFunc(urlWithParams, {
             method,
             headers,
             body: JSON.stringify(body)
@@ -122,6 +124,217 @@ let ZitiControllerClient = (function() {
             headers[this.apiKey.headerOrQueryName] = this.apiKey.value;
         }
         return headers;
+    };
+
+    /**
+     * Retrieves the API session that was used to issue the current request
+     * @method
+     * @name ZitiControllerClient#getCurrentAPISession
+     * @param {object} parameters - method options and parameters
+     */
+    ZitiControllerClient.prototype.getCurrentAPISession = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/current-api-session';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('GET', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Terminates the current API session
+     * @method
+     * @name ZitiControllerClient#deleteCurrentApiSession
+     * @param {object} parameters - method options and parameters
+     */
+    ZitiControllerClient.prototype.deleteCurrentApiSession = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/current-api-session';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('DELETE', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Retrieves a list of certificate resources for the current API session; supports filtering, sorting, and pagination
+     * @method
+     * @name ZitiControllerClient#listCurrentApiSessionCertificates
+     * @param {object} parameters - method options and parameters
+     * @param {integer} parameters.limit - 
+     * @param {integer} parameters.offset - 
+     * @param {string} parameters.filter - 
+     */
+    ZitiControllerClient.prototype.listCurrentApiSessionCertificates = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/current-api-session/certificates';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        if (parameters['limit'] !== undefined) {
+            queryParameters['limit'] = parameters['limit'];
+        }
+
+        if (parameters['offset'] !== undefined) {
+            queryParameters['offset'] = parameters['offset'];
+        }
+
+        if (parameters['filter'] !== undefined) {
+            queryParameters['filter'] = parameters['filter'];
+        }
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('GET', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Creates an ephemeral certificate for the current API Session. This endpoint expects a PEM encoded CSRs to be provided for fulfillment as a property of a JSON payload. It is up to the client to manage the private key backing the CSR request.
+     * @method
+     * @name ZitiControllerClient#createCurrentApiSessionCertificate
+     * @param {object} parameters - method options and parameters
+     * @param {} parameters.body - The payload describing the CSR used to create a session certificate
+     */
+    ZitiControllerClient.prototype.createCurrentApiSessionCertificate = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/current-api-session/certificates';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        if (parameters['body'] !== undefined) {
+            body = parameters['body'];
+        }
+
+        if (parameters['body'] === undefined) {
+            deferred.reject(new Error('Missing required  parameter: body'));
+            return deferred.promise;
+        }
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('POST', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Retrieves a single ephemeral certificate by id
+     * @method
+     * @name ZitiControllerClient#detailCurrentApiSessionCertificate
+     * @param {object} parameters - method options and parameters
+     * @param {string} parameters.id - The id of the requested resource
+     */
+    ZitiControllerClient.prototype.detailCurrentApiSessionCertificate = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/current-api-session/certificates/{id}';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        path = path.replace('{id}', parameters['id']);
+
+        if (parameters['id'] === undefined) {
+            deferred.reject(new Error('Missing required  parameter: id'));
+            return deferred.promise;
+        }
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('GET', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Delete an ephemeral certificateby id
+
+     * @method
+     * @name ZitiControllerClient#deleteCurrentApiSessionCertificate
+     * @param {object} parameters - method options and parameters
+         * @param {string} parameters.id - The id of the requested resource
+     */
+    ZitiControllerClient.prototype.deleteCurrentApiSessionCertificate = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/current-api-session/certificates/{id}';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers = this.setAuthHeaders(headers);
+        headers['Accept'] = ['application/json'];
+        headers['Content-Type'] = ['application/json'];
+
+        path = path.replace('{id}', parameters['id']);
+
+        if (parameters['id'] === undefined) {
+            deferred.reject(new Error('Missing required  parameter: id'));
+            return deferred.promise;
+        }
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        this.request('DELETE', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
     };
 
     /**
@@ -2710,6 +2923,61 @@ let ZitiControllerClient = (function() {
         queryParameters = mergeQueryParams(parameters, queryParameters);
 
         this.request('POST', domain + path, parameters, body, headers, queryParameters, form, deferred);
+
+        return deferred.promise;
+    };
+    /**
+     * Enroll an identity On-The-Fly. This enrollment method expects a PEM encoded CSR to be provided for fulfillment. 
+     * It is up to the enrolling identity to manage the private key backing the CSR request.
+     * @method
+     * @name ZitiControllerClient#enrollOtf
+     */
+    ZitiControllerClient.prototype.enrollOtf = function(parameters) {
+        if (parameters === undefined) {
+            parameters = {};
+        }
+        let deferred = Q.defer();
+        let domain = this.domain,
+            path = '/enroll/otf';
+        let body = {},
+            queryParameters = {},
+            headers = {},
+            form = {};
+
+        headers['Accept'] = ['application/x-x509-user-cert', 'application/x-pem-file, application/json'];
+        headers['Content-Type'] = ['application/x-pem-file'];
+    
+        if (parameters['method'] !== undefined) {
+            queryParameters['method'] = parameters['method'];
+        }
+        if (parameters['username'] !== undefined) {
+            queryParameters['username'] = parameters['username'];
+        }
+        if (parameters['body'] !== undefined) {
+            body = parameters['body'];
+        }
+
+        queryParameters = mergeQueryParams(parameters, queryParameters);
+
+        const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
+
+        let method = 'POST';
+
+        const urlWithParams = domain + path + (queryParams ? '?' + queryParams : '');
+
+        this.logger.trace('ZitiControllerClient: doing enroll/otf to [%o]', urlWithParams);
+
+        realFetch(urlWithParams, {
+            method,
+            headers,
+            body: body
+        }).then((response) => {
+            return response.json();
+        }).then((body) => {
+            deferred.resolve(body);
+        }).catch((error) => {
+            deferred.reject(error);
+        });
 
         return deferred.promise;
     };

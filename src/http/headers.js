@@ -389,3 +389,8 @@ HttpHeaders.prototype.createHeadersLenient = function(obj) {
 	}
 	return headers;
 }
+
+HttpHeaders.prototype.getAllHeaders = function() {
+	let pairs = getHeaders(this);
+	return pairs;
+}

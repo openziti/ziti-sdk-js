@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 
-const RobustWebSocket = require('robust-websocket');
+const RobustWebSocket = require('./robust-websocket');
 
 /**
  * Default options.

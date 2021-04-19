@@ -124,6 +124,7 @@ exports.sumBy = (array, iteratee) => {
  * @return  Object
  */
 exports.parseURL = (url) => {
+  var parsedURL = new URL(url);
   var parser = document.createElement('a'),
       searchObject = {},
   queries, split, i;

@@ -71,15 +71,8 @@ module.exports = class ZitiChannel {
 
     this._connections = new ZitiConnections();
 
-    // Prefer WS over WSS
-    if (this._edgeRouter.urls.ws) {
-      this._zws = new ZitiWebSocket( 'ws://' + this._edgeRouterHost + '/ws' , { ctx: this._ctx} );
-      this._callerId = "ws:";
-    }
-    else if (this._edgeRouter.urls.wss) {
-      this._zws = new ZitiWebSocket( 'wss://' + this._edgeRouterHost + '/wss' , { ctx: this._ctx} );
-      this._callerId = "wss:";
-    }
+    this._zws = new ZitiWebSocket( this._edgeRouter.urls.ws + '/ws' , { ctx: this._ctx} );
+    this._callerId = "ws:";
 
     this._zws.onMessage.addListener(this._recvFromWire, this);
 
@@ -987,6 +980,17 @@ module.exports = class ZitiChannel {
    * 
    */
   _tryHandleResponse(conn, responseSequence, data) {
+
+    if (!isUndefined(conn)) {
+      let socket = conn.getSocket();
+      if (!isUndefined(socket)) {
+        if (socket.isWebSocket) {
+          return;
+        }
+      }
+    }
+
+
     let messagesQueue = this._messages;
     if (!isUndefined(conn)) {
       messagesQueue = conn.getMessages()
@@ -994,7 +998,7 @@ module.exports = class ZitiChannel {
     // var uint8array = new TextEncoder().encode(data);
     var string = new TextDecoder().decode(data.data);
 
-    this._ctx.logger.debug("_tryHandleResponse():  conn[%d] seq[%d] data[%o]", (conn ? conn.getId() : 'n/a'), responseSequence, string);
+    this._ctx.logger.trace("_tryHandleResponse():  conn[%d] seq[%d] data[%o]", (conn ? conn.getId() : 'n/a'), responseSequence, string);
     if (!isNull(responseSequence)) {
       messagesQueue.resolve(responseSequence, data);
     } else {

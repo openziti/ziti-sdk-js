@@ -19,10 +19,18 @@ const EventEmitter = require('events');
 
 class ZitiSocket extends EventEmitter {
 
-    constructor() {
+    constructor(opts) {
         super();
 
-        self = this;
+        /**
+         * 
+         */
+        this.isWebSocket = false;
+        if (typeof opts !== 'undefined') {
+            if (typeof opts.isWebSocket !== 'undefined') {
+                this.isWebSocket = opts.isWebSocket;
+            }
+        }
 
         /**
          * This stream is where we'll put any data returned from a Ziti connection (see ziti_dial.data.call_back)
@@ -66,7 +74,7 @@ class ZitiSocket extends EventEmitter {
                 window.ziti.ziti_dial(
                     service,
 
-                    false,  // This is NOT a websocket
+                    self.isWebSocket,
 
                     /**
                      * on_connect callback.
@@ -80,7 +88,7 @@ class ZitiSocket extends EventEmitter {
                      * on_data callback
                      */
                     (data) => {
-                        // logger.info('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
+                        logger.info('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
                         this.readableZitiStreamController.enqueue(data);
                     },
                 );
@@ -188,6 +196,8 @@ class ZitiSocket extends EventEmitter {
             buffer = Buffer.from(chunk, 'utf8');
         } else if (Buffer.isBuffer(chunk)) {
             buffer = chunk;
+        } else if (chunk instanceof Uint8Array) {
+            buffer = Buffer.from(chunk, 'utf8');
         } else {
             throw new Error('chunk type of [' + typeof chunk + '] is not a supported type');
         }
@@ -203,10 +213,10 @@ class ZitiSocket extends EventEmitter {
             // let response = await 
             ch.write(conn, buffer);
 
-            // this.emit('data', response);
-
         }
-        cb();
+        if (cb) {
+            cb();
+        }
     }
 
     /**
@@ -251,6 +261,28 @@ class ZitiSocket extends EventEmitter {
     _final(cb) {
         cb();
     }
+
+    /**
+     *
+     */
+    setTimeout() {
+        /* NOP */
+    }
+
+    /**
+     *
+     */
+    setNoDelay() {
+        /* NOP */
+    }
+
+    /**
+     *
+     */
+    unshift(head) {
+        /* NOP */
+    }
+    
 }
 
 Object.defineProperty(ZitiSocket.prototype, 'writable', {

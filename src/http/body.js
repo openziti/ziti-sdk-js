@@ -21,7 +21,7 @@ const Stream = require('readable-stream');
 const BUFFER = Blob.BUFFER;
 // const BUFFER = Symbol('buffer');
 
-// import FormData from './form-data';
+const FormData = require('./form-data');
 
 let convert;
 
@@ -63,6 +63,24 @@ function HttpBody(body, init = {
 		body = Buffer.from(body.buffer, body.byteOffset, body.byteLength);
 	} else if (body instanceof Stream) {
 		// body is stream
+	// } else if (typeof body.getBoundary === 'function') {
+	// 	// detect form data input from form-data module
+	// 	// return `multipart/form-data;boundary=${body.getBoundary()}`;
+	} else if (typeof body === 'object' && typeof body.getAll === 'function') {
+	// 	// detect FormData object
+		ziti._ctx.logger.info('extractContentType() FormData DETECTED for: %o', body);
+		var form = new FormData();
+		for (var key of body.keys()) {
+			ziti._ctx.logger.info('key is: ', key);
+			ziti._ctx.logger.info('val is: ', body.get(key));
+			form.append(key, body.get(key));
+		 }
+		 ziti._ctx.logger.info('form is: %o', form);
+		 ziti._ctx.logger.info('getHeaders() says: %o', form.getHeaders());
+
+	// 	// return `multipart/form-data;boundary=${form.getBoundary()}`;
+	// } else if (body instanceof ReadableStream) {
+	// 	// body is readable stream
 	} else {
 		// log.info('Body is a string: [%o]', body);
 
@@ -249,19 +267,19 @@ HttpBody.prototype.extractContentType = function(body) {
 	} else if (typeof body.getBoundary === 'function') {
 		// detect form data input from form-data module
 		return `multipart/form-data;boundary=${body.getBoundary()}`;
-	// } else if (typeof body === 'object' && typeof body.getAll === 'function') {
-	// 	// detect FormData object
-	// 	log.info('extractContentType() FormData DETECTED for: %o', body);
-	// 	var form = new FormData();
-	// 	for (var key of body.keys()) {
-	// 		log.info('key is: ', key);
-	// 		log.info('val is: ', body.get(key));
-	// 		form.append(key, body.get(key));
-	// 	 }
-	// 	 log.info('form is: %o', form);
-	// 	 log.info('getHeaders() says: %o', form.getHeaders());
+	} else if (typeof body === 'object' && typeof body.getAll === 'function') {
+		// detect FormData object
+		ziti._ctx.logger.info('extractContentType() FormData DETECTED for: %o', body);
+		var form = new FormData();
+		for (var key of body.keys()) {
+			ziti._ctx.logger.info('key is: ', key);
+			ziti._ctx.logger.info('val is: ', body.get(key));
+			// form.append(key, body.get(key));
+		 }
+		 ziti._ctx.logger.info('form is: %o', form);
+		 ziti._ctx.logger.info('getHeaders() says: %o', form.getHeaders());
 
-	// 	return `multipart/form-data;boundary=${form.getBoundary()}`;
+		return `multipart/form-data;boundary=${form.getBoundary()}`;
 	// 	// return null;
 	} else if (body instanceof Stream) {
 		// body is stream
@@ -283,9 +301,10 @@ HttpBody.prototype.extractContentType = function(body) {
  * @param   HttpBody    instance   Instance of HttpBody
  * @return  Number?            Number of bytes, or null if not possible
  */
-HttpBody.prototype.getTotalBytes = function(instance) {
-	const {body} = instance;
-
+// HttpBody.prototype.getTotalBytes = function(instance) {
+	// const {body} = instance;
+HttpBody.prototype.getTotalBytes = function(body) {
+	
 	if (!body) {
 		// body is null
 		return 0;
@@ -338,6 +357,28 @@ HttpBody.prototype.writeToStream = async function(dest, instance) {
 }
 
 
+HttpBody.prototype.getBoundary = function() {
+	if (!this._boundary) {
+	  this._generateBoundary();
+	}
+  
+	return this._boundary;
+};
+
+HttpBody.prototype._generateBoundary = function() {
+	// This generates a 50 character boundary similar to those used by Firefox.
+	// They are optimized for boyer-moore parsing.
+	var boundary = '--------------------------';
+	for (var i = 0; i < 24; i++) {
+	  boundary += Math.floor(Math.random() * 10).toString(16);
+	}
+  
+	this._boundary = boundary;
+};
+  
+  
+
+
 /**
  * Consume and convert an entire HttpBody to a Buffer.
  *
@@ -350,7 +391,7 @@ function consumeBody() {
 	// log.info('consumeBody() entered');
 
 	if (this[INTERNALS].disturbed) {
-		log.error('consumeBody() this[INTERNALS].disturbed, body used already for: %s', this.url);
+		// log.error('consumeBody() this[INTERNALS].disturbed, body used already for: %s', this.url);
 
 		return HttpBody.Promise.reject(new TypeError(`body used already for: ${this.url}`));
 	}
@@ -358,7 +399,7 @@ function consumeBody() {
 	this[INTERNALS].disturbed = true;
 
 	if (this[INTERNALS].error) {
-		log.error('consumeBody() this[INTERNALS].error: %o', this[INTERNALS].error);
+		// log.error('consumeBody() this[INTERNALS].error: %o', this[INTERNALS].error);
 
 		return HttpBody.Promise.reject(this[INTERNALS].error);
 	}
@@ -404,7 +445,7 @@ function consumeBody() {
 
 		// handle stream errors
 		body.on('error', err => {
-			log.error('consumeBody() in on.error: %o', err);
+			// log.error('consumeBody() in on.error: %o', err);
 			if (err.name === 'AbortError') {
 				// if the request was aborted, reject with this Error
 				abort = true;
@@ -423,7 +464,7 @@ function consumeBody() {
 
 			if (this.size && accumBytes + chunk.length > this.size) {
 				abort = true;
-				log.error('consumeBody() in on.data: content size over limit: %o', this.size);
+				// log.error('consumeBody() in on.data: content size over limit: %o', this.size);
 				reject(new Error(`content size at ${this.url} over limit: ${this.size}`));
 				return;
 			}
@@ -444,7 +485,7 @@ function consumeBody() {
 			try {
 				resolve(Buffer.concat(accum, accumBytes));
 			} catch (err) {
-				log.error('consumeBody() Could not create Buffer from response body for %s: %s', this.url, err.message);
+				// log.error('consumeBody() Could not create Buffer from response body for %s: %s', this.url, err.message);
 				// handle streams that have accumulated too much data (issue #414)
 				reject(new Error(`Could not create Buffer from response body for ${this.url}: ${err.message}`));
 			}

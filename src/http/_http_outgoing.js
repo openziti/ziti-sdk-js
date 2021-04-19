@@ -746,7 +746,7 @@ OutgoingMessage.prototype.end = function end(chunk, encoding, callback) {
 
   if (this.socket) {
     // Fully uncork connection on end().
-    this.socket._writableState.corked = 1;
+    // this.socket._writableState.corked = 1;
     this.socket.uncork();
   }
   this[kCorked] = 0;
