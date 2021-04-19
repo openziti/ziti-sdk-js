@@ -14,7 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-  
+const isNull      = require('lodash.isnull');
+const localforage = require('localforage');
+
+localforage.config({
+    driver      : localforage.INDEXEDDB,
+    name        : 'ziti_sdk_js',
+    version     : 1.0,
+    storeName   : 'ziti_sdk_js_db', // Should be alphanumeric, with underscores.
+    description : 'Ziti JS SDK database'
+});
+
+
 /**
  *	Save specified value under specified key
  *	as well as the time when it's supposed to lazily expire
@@ -23,12 +34,15 @@ limitations under the License.
  * @param {Object} value
  * @param {Object} ttl
  */  
-exports.setWithExpiry = (key, value, ttl) => {
-	const item = {
-	    value: value,
-		expiry: ttl,
-	}
-	localStorage.setItem(key, JSON.stringify(item))
+exports.setWithExpiry = async (key, value, ttl) => {
+	return new Promise( async (resolve, reject) => {
+		const item = {
+			value: value,
+			expiry: ttl,
+		}
+		await localforage.setItem(key, item);
+		resolve();
+	});
 }
 
 /**
@@ -38,21 +52,25 @@ exports.setWithExpiry = (key, value, ttl) => {
  * @param {Object} key
  * @return {Object} value
  */  
-exports.getWithExpiry = (key) => {
-	const itemStr = localStorage.getItem(key)
-	// if the item doesn't exist, return null
-	if (!itemStr) {
-		return null
-	}
-	const item = JSON.parse(itemStr)
-	const now = new Date()
-	// compare the expiry time of the item with the current time
-	if (now.getTime() > item.expiry) {
-		// If the item is expired, delete the item from storage and return null
-		localStorage.removeItem(key)
-		return null
-	}
-	return item.value
+exports.getWithExpiry = async (key) => {
+	return new Promise( async (resolve, reject) => {
+
+		const item = await localforage.getItem(key)
+		// if the item doesn't exist, return null
+		if (isNull(item)) {
+			resolve( null );
+		} else {
+			const now = new Date()
+			// compare the expiry time of the item with the current time
+			if (now.getTime() > item.expiry) {
+				// If the item is expired, delete the item from storage and return null
+				await localforage.removeItem(key)
+				resolve( null );
+			} else {
+				resolve( item.value );
+			}
+		}
+	});
 }
 
 /**
@@ -62,12 +80,24 @@ exports.getWithExpiry = (key) => {
  * @param {Object} key
  * @return {Object} value
  */  
-exports.get = (key) => {
-	const itemStr = localStorage.getItem(key)
-	// if the item doesn't exist, return null
-	if (!itemStr) {
-		return null
-	}
-	const item = JSON.parse(itemStr)
-	return item.value
+exports.get = async (key) => {
+	return new Promise( async (resolve, reject) => {
+		const item = await localforage.getItem(key)
+		// if the item doesn't exist, return null
+		if (isNull(item)) {
+			resolve( null );
+		} else {
+			resolve(item.value);
+		}
+	});
+}
+
+
+/**
+ *	Remove value for specified key
+ * 
+ * @param {*} key 
+ */
+exports.removeItem = async (key) => {
+	await localforage.removeItem( key );
 }

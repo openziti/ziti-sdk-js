@@ -23,10 +23,90 @@ limitations under the License.
 exports.inject = () => {
 
 	styleString = `
+
+	// body {
+	// 	background: #eee !important;
+	//   }
+	  
+	* {
+		-webkit-box-sizing: border-box;
+		-moz-box-sizing: border-box;
+		box-sizing: border-box;
+	}
+
+	.h1, .h2, .h3, .h4, .h5, .h6, h1, h2, h3, h4, h5, h6 {
+		font-family: inherit;
+		font-weight: 500;
+		line-height: 1.1;
+		color: inherit;
+	}
+
+	  .wrapper {
+		margin-top: 80px;
+		margin-bottom: 80px;
+	  }
+	  
+	  .form-signin {
+		border-radius: 10px;
+		max-width: 380px;
+		padding: 15px 35px 45px;
+		margin: 0 auto;
+		background-color: #fff;
+		border: 1px solid rgba(0, 0, 0, 0.1);
+		box-sizing: border-box;
+	  }
+	  .form-signin .form-signin-heading,
+	  .form-signin .checkbox {
+		margin-bottom: 30px;
+		font-size: 18px;
+		color: black;
+		font-family: sans-serif;
+	  }
+	  .form-signin .checkbox {
+		font-weight: normal;
+	  }
+	  .form-signin .form-control {
+		position: relative;
+		font-size: 16px;
+		height: auto;
+		padding: 10px;
+		-webkit-box-sizing: border-box;
+		-moz-box-sizing: border-box;
+		box-sizing: border-box;
+	  }
+	  .form-signin .form-control:focus {
+		z-index: 2;
+	  }
+	  .form-signin input[type="text"] {
+		margin-bottom: -1px;
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	  }
+	  .form-signin input[type="password"] {
+		margin-bottom: 20px;
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	  }
+	  
+	  .form-signin-button {
+		background-image: linear-gradient(to bottom right, #0e61ed , #ee044f);
+	  }
   
   	.modal {
-	  font-family: -apple-system,BlinkMacSystemFont,avenir next,avenir,helvetica neue,helvetica,ubuntu,roboto,noto,segoe ui,arial,sans-serif;
+	  	font-family: -apple-system,BlinkMacSystemFont,avenir next,avenir,helvetica neue,helvetica,ubuntu,roboto,noto,segoe ui,arial,sans-serif;
+	  	background-image: linear-gradient(to bottom right, #0e61ed , #ee044f);
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		z-index: 1050;
+		display: none;
+		overflow: hidden;
+		-webkit-overflow-scrolling: touch;
+		outline: 0;
 	}
+
 	
 	.modal__overlay {
 	  position: fixed;
@@ -56,16 +136,19 @@ exports.inject = () => {
 	  align-items: center;
 	  border-bottom: 1px solid #00449e;
 	  padding-bottom: 8px;
+	  position: relative;
+	  background: white
 	}
 	
 	.modal__title {
 	  margin-top: 0;
 	  margin-bottom: 0;
 	  font-weight: 600;
-	  font-size: 1.25rem;
-	  line-height: 1.25;
-	  color: #ffffff;
+	  font-size: 1.0rem;
+	  line-height: 1.0;
+	  color: #000000;
 	  box-sizing: border-box;
+	  font-family: sans-serif;
 	}
 	
 	.modal__close {
@@ -180,147 +263,136 @@ exports.inject = () => {
 	.micromodal-slide .modal__container,
 	.micromodal-slide .modal__overlay {
 	  will-change: transform;
-	}
+	}  
   
-	.disclaimer.ytcp-uploads-file-picker:last-of-type {
-	  margin: 8px 0;
-	}
-  
-  
-	.disclaimer.ytcp-uploads-file-picker {
+	.ziti-footer {
 	  font-family: 'Roboto', 'Noto', sans-serif;
 	  font-weight: 400;
 	  -webkit-font-smoothing: antialiased;
 	  letter-spacing: 0.011em;
 	  font-size: 12px;
 	  line-height: 16px;
-	  color: var(--ytcp-black-secondary);
+	  color: white;
 	  text-align: center;
 	}
   
-	.ytcp-uploads-file-picker:not([disabled]) ytcp-uploads-file-picker-animation.ytcp-uploads-file-picker {
-	  cursor: pointer;
-	}
-	.ytcp-uploads-file-picker-animation.ytcp-uploads-file-picker {
-		margin-top: auto;
-	}
-	.ytcp-uploads-file-picker-animation {
+	.btn-block {
 		display: block;
-	}
-	.ytcp-uploads-file-picker {
-		display: flex;
-		justify-content: center;
-		height: 100%;
 		width: 100%;
-		--ytcp-feature-discovery-zindex: 3000;
 	}
-    
-	#modal__upload.ytcp-uploads-file-picker {
-	  display: flex;
-	  flex-direction: column;
-	  align-items: center;
-	  justify-content: center;
-	  min-height: 370px;
-	  padding: 16px 24px 0 24px;
+	.btn-group-lg>.btn, .btn-lg {
+		padding: 10px 16px;
+		font-size: 18px;
+		line-height: 1.3333333;
+		border-radius: 6px;
 	}
-  
-	#circle.ytcp-uploads-file-picker-animation {
-	  width: 136px;
-	  height: 136px;
-	  background: linear-gradient(140deg, rgba(2,0,36,1) 10%, rgba(20,95,235,1) 0%, rgba(238,6,79,1) 83%);
-	  position: relative;
-	  border-radius: 68px;
-	  overflow: hidden;
-	  cursor: pointer;
+	.btn-primary {
+		color: #fff;
+		background-color: #337ab7;
+		border-color: #2e6da4;
 	}
-  
-	#arrow-group.ytcp-uploads-file-picker-animation {
-	  position: absolute;
-	  top: calc(68px - 52px/2);
-	  left: calc(68px - 40px/2);
-	  width: 40px;
-	  display: flex;
-	  flex-direction: column;
-	  z-index: 30;
-	}
-  
-	#arrow.ytcp-uploads-file-picker-animation {
-	  position: relative;
-	  width: 38px;
-	  height: 36px;
-	  flex: none;
-	  align-self: center;
-	}
-  
-	#arrow-tip.ytcp-uploads-file-picker-animation {
-	  width: 0;
-	  height: 0;
-	  border-left: 19px solid transparent;
-	  border-right: 19px solid transparent;
-	  border-bottom: 21px solid #fff;
-	  position: absolute;
-	  top: 0;
-	  z-index: 30;
-	}
-  
-	#smoke.ytcp-uploads-file-picker-animation {
-	  height: 150px;
-	  background: white;
-	  opacity: 0.5;
-	  width: 36px;
-	  height: 100px;
-	  position: absolute;
-	  top: 20px;
-	  left: calc(19px - 36px/2);
-	  z-index: 10;
-	  transform: translateY(0px) scale(1, 0);
-	}
-  
-	#arrow-line.ytcp-uploads-file-picker-animation {
-	  width: 16px;
-	  height: 16px;
-	  background: #fff;
-	  position: absolute;
-	  top: 20px;
-	  left: 11px;
-	  z-index: 30;
-	}
-  
-	#arrow-underline.ytcp-uploads-file-picker-animation {
-	  flex: none;
-	  align-self: center;
-	  width: 40px;
-	  border-bottom: 6px solid #fff;
-	  margin-top: 10px;
-	}
-  
-	.label.ytcp-uploads-file-picker {
-	  font-weight: bold;
-	  font-size: 1.0rem;
-	  margin-top: 25px;
-	  color: #00449e;
-	}
-  
-	.ytcp-uploads-file-picker.drag::before {
-	  content: '';
-	  position: fixed;
-	  top: 80px;
-	  left: 30px;
-	  bottom: 160px;
-	  right: 30px;
-	  background: linear-gradient(124deg, rgba(2,0,36,1) 0%, rgba(20,95,235,1) 50%, rgba(238,6,79,1) 100%);
-	  border: 3px #ee064f dashed;
+	.btn {
+		display: inline-block;
+		padding: 6px 12px;
+		margin-bottom: 0;
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 1.42857143;
+		text-align: center;
+		white-space: nowrap;
+		vertical-align: middle;
+		-ms-touch-action: manipulation;
+		touch-action: manipulation;
+		cursor: pointer;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+		user-select: none;
+		// background-image: none;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		font-family: sans-serif;
 	}
 	
+	button, input, select, textarea {
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+	}
+	button, html input[type=button], input[type=reset], input[type=submit] {
+		-webkit-appearance: button;
+		cursor: pointer;
+	}
+	button, select {
+		text-transform: none;
+	}
+	button {
+		overflow: visible;
+	}
+	button, input, optgroup, select, textarea {
+		margin: 0;
+		font: inherit;
+		color: inherit;
+	}
+	button, input, select, textarea {
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+	}
+	button, html input[type=button], input[type=reset], input[type=submit] {
+		-webkit-appearance: button;
+		cursor: pointer;
+	}
+	button, select {
+		text-transform: none;
+	}
+	button {
+		overflow: visible;
+	}
+	button, input, optgroup, select, textarea {
+		margin: 0;
+		font: inherit;
+		color: inherit;
+	}
+	* {
+		-webkit-box-sizing: border-box;
+		-moz-box-sizing: border-box;
+		box-sizing: border-box;
+	}
+	* {
+		-webkit-box-sizing: border-box;
+		-moz-box-sizing: border-box;
+		box-sizing: border-box;
+	}
+
+	.form-control {
+		display: block;
+		width: 100%;
+		height: 34px;
+		padding: 6px 12px;
+		font-size: 14px;
+		line-height: 1.42857143;
+		color: #555;
+		background-color: #fff;
+		background-image: none;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		-webkit-box-shadow: inset 0 1px 1px rgb(0 0 0 / 8%);
+		box-shadow: inset 0 1px 1px rgb(0 0 0 / 8%);
+		-webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
+		-o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
+		transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
+		font-family: sans-serif;
+	}	
 	`;
   
 	const style = document.createElement('style');
 	style.textContent = styleString;
 	document.head.append(style);
   
-	document.head.insertAdjacentHTML('afterbegin', `
-	  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet"/>
-	`);
+	// document.head.insertAdjacentHTML('afterbegin', `
+	//   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet"/>
+	// `);
   
   }
   

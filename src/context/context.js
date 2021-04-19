@@ -19,7 +19,6 @@ limitations under the License.
  */
 
 const flatOptions           = require('flat-options');
-const MicroModal            = require('micromodal');
 const consola               = require('consola');
 const find                  = require('lodash.find');
 const filter                = require('lodash.filter');
@@ -33,6 +32,11 @@ const has                   = require('lodash.has');
 const Mutex                 = require('async-mutex');
 const formatMessage         = require('format-message');
 
+let MicroModal
+if (!zitiConfig.serviceWorker.active) {
+  MicroModal                = require('micromodal');
+}
+
 const utils                 = require('../utils/utils');
 const ls                    = require('../utils/localstorage');
 const edge_protocol         = require('../channel/protocol');
@@ -43,7 +47,11 @@ const ZitiControllerClient  = require('../context/controller-client');
 const ZitiControllerWSClient  = require('./controller-ws-client');
 const ZitiChannel           = require('../channel/channel');
 const {throwIf}             = require('../utils/throwif');
-const ZitiEnroller          = require('../enroll/enroller');
+
+let ZitiEnroller
+if (!zitiConfig.serviceWorker.active) {
+  ZitiEnroller              = require('../enroll/enroller');
+}
 
 
 /**
@@ -80,13 +88,40 @@ function mixin(obj) {
 }
 
 
+/**
+ * Load the Identity.
+ *
+ */
+ZitiContext.prototype.loadAPISessionToken = async function(self) {
+
+  return new Promise( async (resolve, reject) => {
+
+    self.logger.debug('loadAPISessionToken() starting');
+
+    let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+
+    self.logger.debug('loadAPISessionToken() ZITI_API_SESSION_TOKEN is: [%o]', apisess);
+
+    if (!isNull(apisess)) {
+      self._apiSession = apisess;
+
+      // Set the token header on behalf of all subsequent Controller API calls
+      self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+    }
+
+    resolve();
+  });
+}
+
+
 ZitiContext.prototype.haveRequiredVariables = function(self) {
   if (
-    isNull( self._ztAPI ) ||
-    isNull( self._ztWSAPI ) ||
-    isNull( self._IDENTITY_CERT ) ||
-    isNull( self._IDENTITY_KEY ) ||
-    isNull( self._IDENTITY_CA ) 
+    // isNull( self._ztAPI ) ||
+    // isNull( self._ztWSAPI ) || isUndefined( self._ztWSAPI ) ||
+    isNull( self._IDENTITY_CERT ) || isUndefined( self._IDENTITY_CERT ) ||
+    isNull( self._IDENTITY_KEY )  || isUndefined( self._IDENTITY_KEY )
+    // ||
+    // isNull( self._IDENTITY_CA ) 
   ) {
     return false;
   } else {
@@ -102,31 +137,40 @@ ZitiContext.prototype.loadIdentity = async function(self) {
 
   return new Promise( async (resolve, reject) => {
 
+    self.logger.debug('loadIdentity() starting');
+
     // Load Identity variables from storage
-    self._ztAPI         = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
-    self._ztWSAPI       = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
-    self._IDENTITY_CERT = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-    self._IDENTITY_KEY  = ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
-    self._IDENTITY_CA   = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
+    // self._ztWSAPI       = await ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
+    self._IDENTITY_CERT = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+    self._IDENTITY_KEY  = await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+    // self._IDENTITY_CA   = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
+
+    await self.loadAPISessionToken(self);
+
+    // let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+    // if (!isNull(apisess)) {
+    //   self._apiSession = apisess;
+
+    //   // Set the token header on behalf of all subsequent Controller API calls
+    //   self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+    // }
 
     // If Identity absent/expired...
     if (! self.haveRequiredVariables(self) ) {
       // ...then we need to enroll
       let enroller = new ZitiEnroller(ZitiEnroller.prototype);
-      enroller.init({logger: self.logger});
+      enroller.init({ctx: self, logger: self.logger});
       await enroller.enroll().catch((e) => {
         self.logger.error('Enrollment failed: [%o]', e);
         localStorage.removeItem(zitiConstants.get().ZITI_JWT);
-        reject('Enrollment failed');
-        return;
+        return reject('Enrollment failed');
       });
 
       // Now that enrollment completed successfully, reload Identity
-      self._ztAPI         = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
-      self._ztWSAPI       = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
-      self._IDENTITY_CERT = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-      self._IDENTITY_KEY  = ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
-      self._IDENTITY_CA   = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
+      // self._ztWSAPI       = await ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
+      self._IDENTITY_CERT = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+      self._IDENTITY_KEY  = await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+      // self._IDENTITY_CA   = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
     }
 
     resolve();
@@ -144,20 +188,25 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
 
   let self = this;
 
-  await this.loadIdentity(self);
+  return new Promise( async (resolve, reject) => {
 
-  return new Promise((resolve, reject) => {
+    self.logger.debug('awaitIdentityLoadComplete() starting');
+
+    await this.loadIdentity(self).catch((e) => {
+      return reject(e);
+    });
+  
     let startTime = new Date();
     (function waitForIdentityLoadComplete() {
       if (self.haveRequiredVariables(self)) {
-        self._ztAPI = ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
-        if (self._ztAPI) {
+        // self._ztAPI = await ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
+        // if (self._ztAPI) {
           if (self._modalIsOpen) {
-            MicroModal.close('modal-1');
+            MicroModal.close('ziti-updb-modal');
             self._modalIsOpen = false;
           }
           return resolve(self._ztAPI);
-        }
+        // }
       }
       self.logger.debug('awaitIdentityLoadComplete() identity still not loaded');
       let now = new Date();
@@ -170,6 +219,38 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
     })();
   });
 }
+
+ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async function() {
+
+  let self = this;
+
+  console.log('_awaitIdentityLoadCompleteFromServiceWorker() entered');
+
+  self.logger.debug('_awaitIdentityLoadCompleteFromServiceWorker() entered');
+
+  return new Promise((resolve, reject) => {
+    let startTime = new Date();
+    (function waitForIdentityLoadComplete() {
+      if (self.haveRequiredVariables(self)) {
+        console.log('_awaitIdentityLoadCompleteFromServiceWorker() resolving with: ', self._ztAPI);
+        self.logger.debug('_awaitIdentityLoadCompleteFromServiceWorker() resolving with: [%s]', self._ztAPI);
+        resolve(self._ztAPI);
+        return
+      }
+      self.logger.debug('_awaitIdentityLoadCompleteFromServiceWorker() identity still not loaded');
+      let now = new Date();
+      let elapsed = now.getTime() - startTime.getTime();
+      if (elapsed > 1000*60) {
+        self.logger.error('_awaitIdentityLoadCompleteFromServiceWorker() identity never acquired');
+        return reject();
+      } else {
+        setTimeout(waitForIdentityLoadComplete, 500);
+      }
+    })();
+  });
+}
+
+
 
 
 /**
@@ -189,11 +270,133 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
  */
 ZitiContext.prototype.init = async function(options) {
 
+  let self = this;
+
   return new Promise( async (resolve, reject) => {
 
     let _options = flatOptions(options, defaultOptions);
 
-    this.logger = consola.create({
+    self.logger = consola.create({
+      level: _options.logLevel,
+      reporters: [
+        new ZitiReporter()
+      ],
+      defaults: {
+        additionalColor: 'white'
+      }
+    });
+    self.logger.wrapConsole();
+
+    let domain
+    if (typeof window === 'undefined') {
+      domain = zitiConfig.controller.api;         // We're on service worker side
+    } else {
+      domain = window.zitiConfig.controller.api;  // We're on (normal) browser side
+    }
+    self._controllerClient = new ZitiControllerClient({
+      domain: domain,
+      logger: self.logger
+    });
+
+    // // Get Controller version info
+    // let res = await self._controllerClient.listVersion();
+    // self._controllerVersion = res.data;
+    // self.logger.info('Controller Version: [%o]', self._controllerVersion);
+
+    //
+    if (typeof window === 'undefined') {
+      // We're on service worker side
+      await self._awaitIdentityLoadCompleteFromServiceWorker().catch((err) => {
+        return;
+      });  
+    } else {
+      // We're on (normal) browser side
+      await self._awaitIdentityLoadComplete().catch((err) => {
+        return;
+      });  
+    }
+
+    self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
+
+    self._network_sessions = new Map();
+    self._services = new Map();
+    self._channels = new Map();
+    self._channelSeq = 0;
+    self._connSeq = 0;
+
+    self._mutex = new Mutex.Mutex();
+    self._connectMutex = new Mutex.Mutex();
+
+    let services = await ls.getWithExpiry(zitiConstants.get().ZITI_SERVICES);
+    if (!isNull(services)) {
+      self._services = services;
+    }
+
+    /*
+    *  Start WS client stuff...
+    */
+
+    // this._controllerWSClient = new ZitiControllerWSClient({
+    //   ctx: this,
+    //   domain: this._ztWSAPI,
+    //   logger: this.logger
+    // });
+
+    // await this._controllerWSClient.connect();
+    
+    // // Get an API session with Controller
+    // res = await this._controllerClient.authenticate({
+    //   method: 'cert',
+    //   body: { 
+    //     configTypes: [
+    //       'ziti-tunneler-client.v1'
+    //     ]
+    //   }
+    // });
+    // res = JSON.parse(Buffer.from(res).toString());
+    // if (!isUndefined(res.error)) {
+    //   this.logger.error(res.error.message);
+    //   if (res.error.code == 'INVALID_AUTH') { // if the Identity we have has expired or been revoked
+    //     localStorage.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT ); // then purge it
+    //   }
+    //   reject(res.error.message);
+    //   return;
+    // }
+    // this._apiSession = res.data;
+    // this.logger.debug('Controller API Session established: [%o]', this._apiSession);
+
+    // // Set the token header on behalf of all subsequent Controller API calls
+    // this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
+
+    resolve();
+  });
+}
+
+
+/**
+ * Initialize the Ziti Context.
+ * 
+ * Tasks:
+ * - validate options
+ * - create logger
+ * - load the Ziti Identity
+ * - create Controller client
+ * - get Controller version
+ * - establish an API session with Controller
+ * - fetch list of active services from Controller
+ *
+ * @param {Object} [options]
+ * @returns {nothing}   
+ */
+ZitiContext.prototype.initFromServiceWorker = async function(options) {
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let _options = flatOptions(options, defaultOptions);
+
+    self.logger = consola.create({
       level: _options.logLevel,
       reporters: [
         new ZitiReporter()
@@ -203,63 +406,35 @@ ZitiContext.prototype.init = async function(options) {
       }
     })
 
-    this._ztAPI = await this._awaitIdentityLoadComplete().catch((err) => {
-      return;
-    });
-
-    this._controllerClient = new ZitiControllerClient({
-      domain: this._ztAPI,
-      logger: this.logger
-    });
-
-    // Get Controller version info
-    let res = await this._controllerClient.listVersion();
-    this._controllerVersion = res.data;
-    this.logger.info('Controller Version: [%o]', this._controllerVersion);
-
-    this._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
-
-    this._network_sessions = new Map();
-    this._services = new Map();
-    this._channels = new Map();
-    this._channelSeq = 0;
-    this._connSeq = 0;
-
-    this._mutex = new Mutex.Mutex();
-    this._connectMutex = new Mutex.Mutex();
-
-    /*
-    *  Start WS client stuff...
-    */
-
-    this._controllerWSClient = new ZitiControllerWSClient({
-      ctx: this,
-      domain: this._ztWSAPI,
-      logger: this.logger
-    });
-
-    await this._controllerWSClient.connect();
+    let domain = zitiConfig.controller.api;
     
-    // Get an API session with Controller
-    res = await this._controllerWSClient.authenticate({
-      method: 'cert',
-      body: { 
-        configTypes: [
-          'ziti-tunneler-client.v1'
-        ]
-      }
+    self._controllerClient = new ZitiControllerClient({
+      domain: domain,
+      logger: self.logger
     });
-    res = JSON.parse(Buffer.from(res).toString());
-    if (!isUndefined(res.error)) {
-      this.logger.error(res.error.message);
-      reject(res.error.message);
-      return;
-    }
-    this._apiSession = res.data;
-    this.logger.debug('Controller API Session established: [%o]', this._apiSession);
 
-    // Set the token header on behalf of all subsequent Controller API calls
-    this._controllerWSClient.setApiKey(this._apiSession.token, 'zt-session', false);
+    // // Get Controller version info
+    // let res = await self._controllerClient.listVersion();
+    // self._controllerVersion = res.data;
+    // self.logger.info('Controller Version: [%o]', self._controllerVersion);
+
+    self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
+
+    self._network_sessions = new Map();
+    self._services = new Map();
+    self._channels = new Map();
+    self._channelSeq = 0;
+    self._connSeq = 0;
+
+    self._mutex = new Mutex.Mutex();
+    self._connectMutex = new Mutex.Mutex();
+
+    await self.loadAPISessionToken(self);
+
+    let services = await ls.getWithExpiry(zitiConstants.get().ZITI_SERVICES);
+    if (!isNull(services)) {
+      self._services = services;
+    }
 
     resolve();
   });
@@ -267,38 +442,73 @@ ZitiContext.prototype.init = async function(options) {
 
 
 ZitiContext.prototype.fetchServices = async function() {
-  // Get list of active Services from Controller
-  res = await this._controllerWSClient.listServices({ 
-    limit: '100' 
+  
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    // 
+    let apiSessionToken = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+    if (!isNull(apiSessionToken)) {
+      self._controllerClient.setApiKey(apiSessionToken.token, 'zt-session', false);
+    }
+
+    // Get list of active Services from Controller
+    res = await self._controllerClient.listServices({ 
+      limit: '100' 
+    });
+    if (!isUndefined(res.error)) {
+      self.logger.error(res.error);
+      return reject(res.error);
+    }
+    self._services = res.data;
+    self.logger.debug('List of available Services acquired: [%o]', self._services);
+
+    await ls.setWithExpiry(zitiConstants.get().ZITI_SERVICES, self._services, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
+
+    resolve();
+
   });
-  res = JSON.parse(Buffer.from(res).toString());
-  this._services = res.data;
-  this.logger.debug('List of available Services acquired: [%o]', this._services);
 }
 
 
 ZitiContext.prototype.getServiceNameByHostNameAndPort = async function(hostname, port) {
 
-  const release = await this._mutex.acquire();
-  if (isEqual( this.getServices().size, 0 )) {
-    await this.fetchServices();
-  }
-  release();
+  let self = this;
 
-  let serviceName = result(find(this._services, function(obj) {
-    let config = obj.config['ziti-tunneler-client.v1'];
-    if (isUndefined(config)) {
-      return false;
+  return new Promise( async (resolve, reject) => {
+
+    if (typeof port === 'string') {
+      port = parseInt(port, 10);
     }
-    if (config.hostname !== hostname) {
-      return false;
+
+    const release = await self._mutex.acquire();
+    if (isEqual( self.getServices().size, 0 )) {
+      await self.fetchServices().catch((error) => {
+        release();
+        return reject(error);
+      });
     }
-    if (config.port !== port) {
-      return false;
-    }
-    return true;
-  }), 'name');
-  return serviceName;
+    release();
+
+    let serviceName = result(find(self._services, function(obj) {
+      let config = obj.config['ziti-tunneler-client.v1'];
+      if (isUndefined(config)) {
+        return false;
+      }
+      if (config.hostname !== hostname) {
+        return false;
+      }
+      if (config.port !== port) {
+        return false;
+      }
+      return true;
+    }), 'name');
+
+    resolve( serviceName );
+  
+  });
+
 }
 
 
@@ -341,6 +551,21 @@ ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRout
  */
 ZitiContext.prototype.connect = async function(conn, networkSession) {
 
+  this.logger.debug('ZitiContext.connect() entered for [%o]', conn);  
+
+  // If we were not given a networkSession, it most likely means something (an API token, Cert, etc) expired,
+  // so we need to purge them and re-acquire
+  if (isUndefined( networkSession )) {
+
+    localStorage.removeItem(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+    localStorage.removeItem(zitiConstants.get().ZITI_IDENTITY_CERT);
+
+    await this._awaitIdentityLoadComplete().catch((err) => {
+      return;
+    });
+  
+  }
+
   conn.token = networkSession.token;
 
   // Get list of all Edge Router URLs where the Edge Router has a WS binding
@@ -350,7 +575,9 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
   throwIf(isEqual(edgeRouters.length, 0), formatMessage('No Edge Routers with ws: binding were found.', { }) );
 
   //
+  this.logger.debug('trying to acquire _connectMutex');  
   const release = await this._connectMutex.acquire();
+  this.logger.debug('now own _connectMutex');  
 
   let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
   this.logger.debug('pendingChannelConnects [%o]', pendingChannelConnects);  
@@ -375,6 +602,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
     await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
   }
 
+  this.logger.debug('releasing _connectMutex');  
   release();
 
 }
@@ -387,9 +615,12 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
  * @returns {bool}
  */
 ZitiContext.prototype.close = async function(conn) {
-  let ch = conn.getChannel();
-  await ch.close(conn);
-  ch._connections._deleteConnection(conn);
+  return new Promise( async (resolve, reject) => {
+    let ch = conn.getChannel();
+    await ch.close(conn);
+    ch._connections._deleteConnection(conn);
+    resolve();
+  });
 }
 
 
@@ -407,8 +638,31 @@ ZitiContext.prototype._getChannelForConnId = function(id) {
  * @returns {bool}
  */
 ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
-  let parsedURL = utils.parseURL(url);
-  return await this.getServiceNameByHostNameAndPort(parsedURL.hostname, parsedURL.port);
+  let parsedURL = new URL(url);
+
+  let hostname = parsedURL.hostname;
+  let port = parsedURL.port;
+
+  if (port === '') {
+    if (parsedURL.protocol === 'https:') {
+      port = 443;
+    } else {
+      port = 80;
+    }
+  }
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let serviceName = await this.getServiceNameByHostNameAndPort(hostname, port).catch(( error ) => {
+      return reject( error );
+    });
+
+    return resolve( serviceName );
+
+  });
+
 }
 
 
@@ -611,31 +865,72 @@ ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {
 
 
 ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
-  // if we do NOT have a NetworkSession for this serviceId, create it
-  const release = await this._mutex.acquire();
-  if (!this._network_sessions.has(serviceID)) { 
-    let network_session = await this.createNetworkSession(serviceID);
-    this.logger.debug('Created network_session [%o] ', network_session);
-    this._network_sessions.set(serviceID, network_session);
-  }
-  release();
-  return this._network_sessions.get(serviceID);
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let network_session;
+
+    const release = await self._mutex.acquire();
+
+    // let network_sessions = await ls.getWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS);
+    // debugger
+
+    // if (!isNull(network_sessions) {
+    // }
+
+    // if we do NOT have a NetworkSession for this serviceId, create it
+    if (!self._network_sessions.has(serviceID)) {
+      
+      let network_session = await self.createNetworkSession(serviceID).catch((e) => { /* ignore */ });
+
+      // await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, network_session, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
+
+      if (!isUndefined( network_session )) {
+
+        // await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, network_session, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
+
+        self.logger.debug('Created network_session [%o] ', network_session);
+        self._network_sessions.set(serviceID, network_session);
+
+      }
+    
+    }
+    
+    release();
+
+    resolve ( self._network_sessions.get(serviceID) );
+
+  });
+
 }
 
 
 ZitiContext.prototype.createNetworkSession = async function(id) {
 
-  res = await this._controllerWSClient.createSession({
-    body: { 
-      serviceId: id
-     },
-     headers: { 
-      'zt-session': this._apiSession.token,
-      'Content-Type': 'application/json'
-    }
-  });
-  res = JSON.parse(Buffer.from(res).toString());
-  let network_session = res.data;
+  let self = this;
 
-  return network_session;
+  return new Promise( async (resolve, reject) => {
+
+    res = await this._controllerClient.createSession({
+      body: { 
+        serviceId: id
+      },
+      headers: { 
+        // 'zt-session': this._apiSession.token,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!isUndefined(res.error)) {
+      self.logger.error(res.error.message);
+      return reject(res.error.message);
+    }
+
+    let network_session = res.data;
+
+    resolve( network_session );
+
+  });
+
 }

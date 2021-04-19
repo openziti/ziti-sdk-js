@@ -28,6 +28,11 @@ const forge           = require('node-forge');
 forge.options.usePureJavaScript = true;
 
 
+async function pullKeyPair(self) {
+  self._clientCertPEM       = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+  self._clientPrivateKeyPEM = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+}
+
 /**
  * @typicalname connection
  */
@@ -53,12 +58,13 @@ module.exports = class ZitiTLSConnection {
     this._connected = false;
 
 
-    // Pull CA from localStorage
-    this._caStore = forge.pki.createCaStore([ ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA) ]);
+    // Pull CA
+    // this._caStore = forge.pki.createCaStore([ ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA) ]);
     
-    // Pull keypair from localStorage
-    this._clientCertPEM       = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-    this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+    // Pull keypair
+    pullKeyPair(this);
+    // this._clientCertPEM       = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+    // this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
 
     let self = this;      
 
@@ -74,8 +80,8 @@ module.exports = class ZitiTLSConnection {
       // We're always the client
       server: false,
       
-      caStore: self._caStore, /* Array of PEM-formatted certs or a CA store object */
-        // caStore:forge.pki.createCaStore([]),
+      // caStore: self._caStore, /* Array of PEM-formatted certs or a CA store object */
+      caStore:forge.pki.createCaStore([]),
 
       //
       sessionCache: {},
@@ -132,7 +138,7 @@ module.exports = class ZitiTLSConnection {
       tlsDataReady: function(connection) {
         let chunk = new Buffer(connection.tlsData.getBytes(), "binary");
         if (chunk.length > 0) {
-          self._ctx.logger.debug('tlsDataReady: encrypted data is ready to be sent to the server  ---> [%o]', chunk);
+          self._ctx.logger.trace('tlsDataReady: encrypted data is ready to be sent to the server  ---> [%o]', chunk);
           self._ws.send(chunk);
         }
       },
@@ -187,7 +193,7 @@ module.exports = class ZitiTLSConnection {
    * @param {*} data 
    */
   process(data) {
-    this._ctx.logger.debug('process: encrypted data from the server arrived  <--- [%o]', data);
+    this._ctx.logger.trace('process: encrypted data from the server arrived  <--- [%o]', data);
     let results = this._tlsClient.process(data);
   }
   
@@ -197,7 +203,7 @@ module.exports = class ZitiTLSConnection {
    * @param {*} data 
    */
   prepare(wireData) {
-    this._ctx.logger.debug('prepare: unencrypted data is ready to be sent to the server  ---> [%o]', wireData);
+    this._ctx.logger.trace('prepare: unencrypted data is ready to be sent to the server  ---> [%o]', wireData);
     let tlsBinaryString = Buffer.from(wireData).toString('binary')
     this._tlsClient.prepare(tlsBinaryString);
   }

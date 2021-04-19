@@ -1,6 +1,6 @@
 {
   "name": "@openziti/ziti-sdk-js",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "A JavaScript-based SDK for delivering secure browser-based web applications over a Ziti Network",
   "scripts": {
     "test": "cross-env NODE_ENV=test mocha -t 30000 -R ${REPORTER:-spec} tests/unit/index.js",
@@ -83,16 +83,23 @@
     "@types/lodash.isnull": "^3.0.6",
     "asn1js": "^2.0.26",
     "assert": "^2.0.0",
-    "async-mutex": "^0.2.4",
+    "async-mutex": "^0.3.1",
+    "asynckit": "^0.4.0",
+    "browserify-zlib": "^0.2.0",
     "buffer": "^5.6.1",
+    "bufferutil": "^4.0.3",
     "chnl": "^1.2.0",
+    "combined-stream": "^1.0.8",
     "consola": "^2.15.0",
+    "create-hash": "^1.2.0",
     "drag-drop": "^6.0.2",
-    "events": "^3.2.0",
+    "events": "^3.3.0",
     "flat-options": "^0.1.3",
     "format-message": "^6.2.3",
+    "js-cookie": "^2.2.1",
     "jwt-decode": "^3.1.2",
     "libsodium-wrappers": "^0.7.8",
+    "localforage": "^1.9.0",
     "lodash.concat": "^4.5.0",
     "lodash.filter": "^4.6.0",
     "lodash.find": "^4.6.0",
@@ -110,8 +117,11 @@
     "promise-controller": "^1.0.0",
     "promise.prototype.finally": "^3.1.2",
     "q": "^1.5.1",
+    "randombytes": "^2.1.0",
     "readable-stream": "^3.6.0",
     "robust-websocket": "^1.0.0",
-    "url": "^0.11.0"
+    "stream-browserify": "^3.0.0",
+    "url": "^0.11.0",
+    "utf-8-validate": "^5.0.4"
   }
 }

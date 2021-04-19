@@ -83,6 +83,7 @@ ZitiAgent.prototype.addRequest = function(req, host, port, localAddress) {
         host: opts.hostname || opts.host,
         port: Number(opts.port) || this.defaultPort,
         localAddress: opts.localAddress,
+        isWebSocket: opts.isWebSocket,
     };
 
     this.createConnection(info, (err, socket) => {
@@ -103,7 +104,7 @@ ZitiAgent.prototype.addRequest = function(req, host, port, localAddress) {
  */
 
 ZitiAgent.prototype.createConnection = function(opts, fn) {
-    const socket = new ZitiSocket();
+    const socket = new ZitiSocket( opts );
     socket.connect(opts);
     fn(null, socket);
     return socket;

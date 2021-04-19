@@ -42,7 +42,7 @@ let ZitiControllerWSClient = (function() {
             throw new Error('Domain parameter must be specified as a string.');
         }
 
-        let parsedURL = utils.parseURL(this.domain);
+        let parsedURL = new URL(this.domain);
         this._controllerHost = parsedURL.hostname;
         this._controllerPort = parsedURL.port;
 
@@ -102,7 +102,7 @@ let ZitiControllerWSClient = (function() {
     ZitiControllerWSClient.prototype.request = function(method, url, parameters, body, headers, queryParameters, form, deferred) {
         const queryParams = queryParameters && Object.keys(queryParameters).length ? serializeQueryParams(queryParameters) : null;
         const urlWithParams = url + (queryParams ? '?' + queryParams : '');
-        let parsedURL = utils.parseURL(url);
+        let parsedURL = new URL(url);
         let path = parsedURL.pathname;
 
         if (body && !Object.keys(body).length) {

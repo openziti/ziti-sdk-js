@@ -50,7 +50,7 @@ class ZitiWebSocket {
    * @param {Options} [options]
    */
   constructor(url, options) {
-    this._url = url;
+    this._url = url.replace("ws:", "wss:");
     this._options = flatOptions(options, defaultOptions);
     this._requests = new Requests();
     this._ws = null;

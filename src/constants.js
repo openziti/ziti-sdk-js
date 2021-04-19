@@ -38,6 +38,11 @@ const ZITI_CONSTANTS =
     'ZITI_CONTROLLER_WS':      'ZITI_CONTROLLER_WS',
 
     /**
+     * 
+     */
+    'ZITI_EXPIRY_TIME': 'ZITI_EXPIRY_TIME',
+
+    /**
      * The Identity certificate (produced during enrollment)
      */
     'ZITI_IDENTITY_CERT':   'ZITI_IDENTITY_CERT',
@@ -56,6 +61,27 @@ const ZITI_CONSTANTS =
      * The Identity CA (retrived from Controller during enrollment)
      */
     'ZITI_IDENTITY_CA':     'ZITI_IDENTITY_CA',
+
+    /**
+     * 
+     */
+    'ZITI_SERVICES': 'ZITI_SERVICES',
+
+    'ZITI_API_SESSION_TOKEN': 'ZITI_API_SESSION_TOKEN',
+
+    'ZITI_IDENTITY_USERNAME': 'ZITI_IDENTITY_USERNAME',
+    'ZITI_IDENTITY_PASSWORD': 'ZITI_IDENTITY_PASSWORD',
+
+    'ZITI_NETWORK_SESSIONS': 'ZITI_NETWORK_SESSIONS',
+
+
+    /**
+     * We save Cookies in IndexedDB for the benefit of work happening on/in the service worker.
+     * This is because normal means of fetching cookies (via document.cookies) will fail because
+     * there is no 'document' object on that side.
+     */
+    'ZITI_COOKIES': 'ZITI_COOKIES',
+
 
     /**
      * The default timeout in milliseconds for connections and write operations to succeed.

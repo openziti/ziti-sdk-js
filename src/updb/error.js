@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+const isNull = require('lodash.isnull');
 
 
 /**
@@ -23,24 +24,30 @@ limitations under the License.
 exports.setMessage = (errorMessage) => {
 
   var el = document.getElementById("ziti-identity-error") 
-  if (typeof errorMessage != "undefined") { 
-    el.textContent = errorMessage 
-    el.style.color = "red" 
-  } else { 
-    el.textContent = "" 
-  } 
-        
+  if (!isNull(el)) { 
+      if (typeof errorMessage != "undefined") { 
+      el.textContent = errorMessage 
+      el.style.color = "red" 
+      el = document.getElementById("ziti-identity-progress") 
+      if (!isNull(el)) {
+        el.textContent = "" 
+      }
+    } else { 
+      el.textContent = "" 
+    } 
+  }        
 }
   
 exports.setProgress = (progressMessage) => {
 
   var el = document.getElementById("ziti-identity-progress") 
-  if (typeof progressMessage != "undefined") { 
-    el.textContent = progressMessage 
-    el.style.color = "green" 
-  } else { 
-    el.textContent = "" 
-  } 
-        
+  if (!isNull(el)) { 
+    if (typeof progressMessage != "undefined") { 
+      el.textContent = progressMessage 
+    el.style.color = "white" 
+    } else { 
+      el.textContent = "" 
+    } 
+  }      
 }
   

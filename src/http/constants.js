@@ -14,24 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
-/**
- * Default options.
- */
-
+'use strict';
 
 module.exports = {
+  BINARY_TYPES: ['nodebuffer', 'arraybuffer', 'fragments'],
 
-    /**
-     * See {@link Options.ctx}
-     *
-     */
-    ctx: null,
+  /**
+   *    This GUID is defined by the Websocket protocol (https://tools.ietf.org/html/rfc6455)
+   */
+  GUID: '258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
 
-    /**
-     * See {@link Options.logger}
-     *
-     */
-    logger: null,
+  kStatusCode: Symbol('status-code'),
 
-  };
+  kWebSocket: Symbol('websocket'),
+
+  EMPTY_BUFFER: Buffer.alloc(0),
+
+  NOOP: () => {}
+};

@@ -15,6 +15,15 @@ limitations under the License.
 */
 
 
+const {
+	Readable,
+	Writable,
+	Transform,
+	Duplex,
+	pipeline,
+	finished 
+  } = require('readable-stream');
+  
 const BUFFER = Symbol('buffer');
 const TYPE = Symbol('type');
 
@@ -114,7 +123,8 @@ Blob.prototype.arrayBuffer = async function() {
 }
 
 Blob.prototype.stream = function() {
-	const readable = new ReadableStream();
+	// const readable = new ReadableStream();
+	const readable = new Duplex();
 	readable._read = () => {};
 	readable.push(this[BUFFER]);
 	readable.push(null);
