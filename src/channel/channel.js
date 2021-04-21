@@ -173,7 +173,7 @@ module.exports = class ZitiChannel {
     await this._zws.open();
 
     if (this.isHelloCompleted) {
-      this._ctx.logger.debug('Hello handshake was previously completed');
+      this._ctx.logger.trace('Hello handshake was previously completed');
       return new Promise( async (resolve) => {
         resolve( {channel: this, data: null});
       });
@@ -607,7 +607,10 @@ module.exports = class ZitiChannel {
   sendMessageNoWait(contentType, headers, body, options = {}) {
     const timeout = options.timeout !== undefined ? options.timeout : this._timeout;
     const messageId = options.sequence || this._sequence;
-    this._ctx.logger.trace("send (no wait) -> conn[%o] seq[%o] contentType[%o] body[%s]", (options.conn ? options.conn.getId() : 'n/a'), messageId, contentType, (body ? body.toString() : 'n/a'));
+    this._ctx.logger.debug("send (no wait) -> conn[%o] seq[%o] contentType[%o]", 
+      (options.conn ? options.conn.getId() : 'n/a'), 
+      messageId, contentType, 
+      (body ? body.toString() : 'n/a'));
 
     this._sendMarshaled(contentType, headers, body, options, messageId);
   }
@@ -796,7 +799,7 @@ module.exports = class ZitiChannel {
    */
   async _recvFromWire(data) {
     let buffer = await data.arrayBuffer();
-    this._ctx.logger.debug("_recvFromWire <- data len[%o]", buffer.byteLength);
+    this._ctx.logger.trace("_recvFromWire <- data len[%o]", buffer.byteLength);
     let tlsBinaryString = Buffer.from(buffer).toString('binary');
     this._tlsConn.process(tlsBinaryString);
   }
@@ -861,17 +864,17 @@ module.exports = class ZitiChannel {
     let contentType = contentTypeView[0];
 
     let sequenceView = new Int32Array(buffer, 8, 1);
-    this._ctx.logger.debug("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
+    this._ctx.logger.trace("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
 
     let responseSequence = sequenceView[0];
 
     let headersLengthView = new Int32Array(buffer, 12, 1);
     let headersLength = headersLengthView[0];
-    this._ctx.logger.debug("recv <- headersLength[%o]", headersLength);
+    this._ctx.logger.trace("recv <- headersLength[%o]", headersLength);
 
     let bodyLengthView = new Int32Array(buffer, 16, 1);
     let bodyLength = bodyLengthView[0];
-    this._ctx.logger.debug("recv <- bodyLength[%o]", bodyLength);
+    this._ctx.logger.trace("recv <- bodyLength[%o]", bodyLength);
 
     this._dumpHeaders(' <- ', buffer);
     var bodyView = new Uint8Array(buffer, 20 + headersLength);
@@ -910,7 +913,7 @@ module.exports = class ZitiChannel {
 
         replyForView = new Int32Array(result.data, 0, 1);
         responseSequence = replyForView[0];  
-        this._ctx.logger.debug("recv <- ReplyFor[%o]", responseSequence);
+        this._ctx.logger.trace("recv <- ReplyFor[%o]", responseSequence);
 
       } else {
 
@@ -919,13 +922,13 @@ module.exports = class ZitiChannel {
           let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
           replyForView = new Int32Array(result.data, 0, 1);
           responseSequence = replyForView[0];  
-          this._ctx.logger.debug("recv <- Close Response For [%o]", responseSequence);  
+          this._ctx.logger.trace("recv <- Close Response For [%o]", responseSequence);  
   
         } else {
 
-          this._ctx.logger.debug("recv <- ReplyFor[%o]", 'n/a');  
+          this._ctx.logger.trace("recv <- ReplyFor[%o]", 'n/a');  
           responseSequence--;
-          this._ctx.logger.debug("reducing seq by 1 to [%o]", responseSequence);
+          this._ctx.logger.trace("reducing seq by 1 to [%o]", responseSequence);
 
         }
       }
@@ -956,7 +959,11 @@ module.exports = class ZitiChannel {
 
           try {
             let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
-            this._ctx.logger.trace("recv <- unencrypted_data: %s", m1);
+            let len = m1.length;
+            if (len > 2000) {
+              len = 2000;
+            }
+            this._ctx.logger.debug("recv <- unencrypted_data (first 2000): %s", m1.substring(0, len));
           } catch (e) { /* nop */ }
 
           bodyView = unencrypted_data.message;
@@ -966,12 +973,12 @@ module.exports = class ZitiChannel {
       // 
       let dataCallback = conn.getDataCallback();
       if (!isUndefined(dataCallback)) {
-        this._ctx.logger.debug("recv <- passing body to dataCallback ", bodyView);
+        this._ctx.logger.trace("recv <- passing body to dataCallback ", bodyView);
         dataCallback(conn, bodyView);
       }
     }
     
-    this._ctx.logger.debug("recv <- response body: ", bodyView);
+    this._ctx.logger.trace("recv <- response body: ", bodyView);
     this._tryHandleResponse(conn, responseSequence, {channel: this, data: bodyView});
   }
 

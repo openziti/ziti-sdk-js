@@ -5,12 +5,12 @@ name: Build
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     paths-ignore:
       - 'package.json'
       - 'CHANGELOG.md'
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       tags:
@@ -38,7 +38,7 @@ jobs:
         token: ${{ secrets.GH_ACTION }}
 
     - name: Bump semver
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       uses: TriPSs/conventional-changelog-action@v3
       with:
         github-token: ${{ secrets.GH_ACTION }}
@@ -50,11 +50,11 @@ jobs:
         release-count: 0 # ensure changelog is generated to contain ALL updates
 
     - name: Pull newly bumped semver
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       run: git pull
 
     - name: Setup .npmrc
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       # Setup .npmrc file to prepare for possible publish to npm
       uses: actions/setup-node@v1
       with:
@@ -79,12 +79,12 @@ jobs:
 # not yet
     # - name: Publish beta release
     #   run: npm publish --tag next --access public
-    #   if: github.ref != 'refs/heads/master'
+    #   if: github.ref != 'refs/heads/main'
     #   env:
     #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     - name: Publish production release
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       run: npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

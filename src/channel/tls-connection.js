@@ -25,6 +25,7 @@ const defaultOptions  = require('./tls-connection-options');
 const utils           = require('../utils/utils');
 const zitiConstants   = require('../constants');
 const forge           = require('node-forge');
+const ab2str          = require('arraybuffer-to-string');
 forge.options.usePureJavaScript = true;
 
 
@@ -147,7 +148,7 @@ module.exports = class ZitiTLSConnection {
       dataReady: function(connection) {
         let chunk = new Buffer(connection.data.getBytes(), "binary");
         let ab = chunk.buffer.slice(0, chunk.byteLength);
-        self._ctx.logger.debug('dataReady: clear data from the server is ready  <--- [%o]', ab);
+        self._ctx.logger.trace('dataReady: clear data from the server is ready  <--- ' );
         self._datacb(self._ch, ab);
       },
 

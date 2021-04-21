@@ -580,7 +580,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
   this.logger.debug('now own _connectMutex');  
 
   let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
-  this.logger.debug('pendingChannelConnects [%o]', pendingChannelConnects);  
+  this.logger.trace('pendingChannelConnects [%o]', pendingChannelConnects);  
 
   let channelConnects = await Promise.all( pendingChannelConnects );
   this.logger.debug('channelConnects [%o]', channelConnects);  

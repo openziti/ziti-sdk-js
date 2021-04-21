@@ -350,6 +350,19 @@ class ZitiClient {
   
       req.on('response', async res => {
         let body = res.pipe(new PassThrough());
+
+        if (req.path === '/oauth/google/login') {
+          debugger
+          let location = res.headers.location;
+          if (!isUndefined(location)) {
+            location = location.replace(`redirect_uri=${zitiConfig.httpAgent.target.scheme}%`, `redirect_uri=https%`);            
+            let targetHost = `${zitiConfig.httpAgent.target.host}`;
+            targetHost = targetHost.toLowerCase();
+            location = location.replace(`${targetHost}`, `${zitiConfig.httpAgent.self.host}`);
+            res.headers.location = location;
+          }
+        }
+
         const response_options = {
           url: request.url,
           status: res.statusCode,
@@ -360,6 +373,53 @@ class ZitiClient {
           counter: request.counter
         };
         let response = new HttpResponse(body, response_options);
+
+        for (const hdr in response_options.headers) {
+          if (response_options.headers.hasOwnProperty(hdr)) {
+            if (hdr === 'set-cookie') {
+              let cookieArray = response_options.headers[hdr];
+              let cookiePath;
+              let expires;
+              let httpOnly = false;
+  
+              let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+              if (isNull(zitiCookies)) {
+                zitiCookies = {}
+              }
+  
+              for (let i = 0; i < cookieArray.length; i++) {
+  
+                let cookie = cookieArray[i];
+                let name = cookie.substring(0, cookie.indexOf("="));
+                let value = cookie.substring(cookie.indexOf("=") + 1);
+                let cookie_value = value.substring(0, value.indexOf(";"));
+                let parts = value.split(";");
+                for (let j = 0; j < parts.length; j++) {
+                  let part = parts[j].trim();
+                  if ( part.startsWith("Path") ) {
+                    cookiePath = part.substring(part.indexOf("=") + 1);
+                  }
+                  else if ( part.startsWith("Expires") ) {
+                    expires = new Date( part.substring(part.indexOf("=") + 1) );
+                  }
+                  else if ( part.startsWith("HttpOnly") ) {
+                    httpOnly = true;
+                  }
+                }
+  
+                Cookies.set(name, cookie_value, { 
+                  // expires: expires,
+                  path: cookiePath
+                });
+  
+                zitiCookies[name] = cookie_value;
+  
+                await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+              }
+            }
+          }
+        }
+  
         resolve(response);
       });
     });
