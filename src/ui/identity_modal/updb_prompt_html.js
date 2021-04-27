@@ -33,7 +33,6 @@ exports.inject = () => {
     htmlString = `
   
         <div class="modal micromodal-slide" id="ziti-updb-modal" aria-hidden="true">
-            
             <div class="wrapper">
                 <form class="form-signin" name="zitilogin" id="ziti-login-form">
                     <header class="modal__header">

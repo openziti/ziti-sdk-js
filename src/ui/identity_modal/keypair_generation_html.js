@@ -16,6 +16,8 @@ limitations under the License.
 
 
 const MicroModal = require('micromodal');
+const isNull                = require('lodash.isnull');
+const isUndefined           = require('lodash.isundefined');
 
 /**
  *	Inject HTML needed for the KeyPair Modal.
@@ -51,8 +53,12 @@ exports.inject = () => {
             </p>
         </div>
     `;
-  
-    document.head.parentNode.insertAdjacentHTML('afterbegin', htmlString);  
-      
+       
+    if (isNull(document.body) || isUndefined(document.body)) {
+        var body = document.createElement("body");
+        document.documentElement.appendChild(body);
+    }
+
+    document.body.insertAdjacentHTML('afterbegin', htmlString);        
 }
   

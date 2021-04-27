@@ -25,7 +25,7 @@ exports.setMessage = (errorMessage) => {
 
   var el = document.getElementById("ziti-identity-error") 
   if (!isNull(el)) { 
-      if (typeof errorMessage != "undefined") { 
+    if (typeof errorMessage != "undefined") { 
       el.textContent = errorMessage 
       el.style.color = "red" 
       el = document.getElementById("ziti-identity-progress") 

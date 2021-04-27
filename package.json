@@ -92,6 +92,7 @@
     "chnl": "^1.2.0",
     "combined-stream": "^1.0.8",
     "consola": "^2.15.0",
+    "cookie-interceptor": "^1.0.0",
     "create-hash": "^1.2.0",
     "drag-drop": "^6.0.2",
     "events": "^3.3.0",
