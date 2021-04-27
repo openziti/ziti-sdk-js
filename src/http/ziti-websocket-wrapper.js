@@ -579,8 +579,8 @@ async function initAsClient(websocket, address, protocols, options) {
             opts.createConnection = zitiConnect;    // We're going over Ziti
 
             newUrl.protocol = "http:";
-            opts.href = newUrl.toString();
-            opts.origin = "http://" + zitiConfig.httpAgent.target.host + ":" + zitiConfig.httpAgent.target.port;
+            opts.href = newUrl.toString().toLowerCase();
+            opts.origin = "http://" + (zitiConfig.httpAgent.target.host).toLowerCase();
             opts.host = zitiConfig.httpAgent.target.host + ":" + zitiConfig.httpAgent.target.port;
         }
 
@@ -619,18 +619,6 @@ async function initAsClient(websocket, address, protocols, options) {
 
     }
 
-    // let cookieString = '';
-    // for (const key in SESSION_COOKIES.getAll()) {
-    //   const cookie = SESSION_COOKIES.get(key);
-    //   if (!cookie) continue;
-    //   if (!cookie.domain) continue;
-    //   if (
-    //     cookie.domain === parsedUrl.hostname ||
-    //     cookie.domain === '.' + parsedUrl.hostname
-    //   ) {
-    //     cookieString = cookieString + cookie.name + '=' + cookie.value + ';';
-    //   }
-    // }
 
     opts.headers.Cookie = cookieString;
   

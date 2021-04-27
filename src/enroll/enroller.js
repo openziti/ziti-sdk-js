@@ -35,6 +35,7 @@ var asn1 = forge.asn1;
 const ls                    = require('../utils/localstorage');
 const defaultOptions        = require('./options');
 const ZitiUPDB              = require('../updb/updb');
+const error                 = require('../updb/error');
 // const identityModalCSS      = require('../ui/identity_modal/css');
 // const identityModalHTML     = require('../ui/identity_modal/html');
 // const identityModalSelect   = require('../ui/identity_modal/select');
@@ -211,8 +212,17 @@ ZitiEnroller.prototype._awaitHaveAPISession = async function() {
       self.logger.debug('login Form submitted: creds are [%o]', self._loginFormValues);
     
       // Establish an API session with Controller
-      await self.getAPISession( self ).catch((err) => {
+      await self.getAPISession( self ).catch( async (err) => {
+
+        error.setMessage('ERROR: Invalid credentials');
+
         self._loginFormValues = undefined;
+
+        await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_USERNAME );
+        await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
+
+        reject(err);
+
       });
     
     }
@@ -264,8 +274,8 @@ ZitiEnroller.prototype.enroll = async function() {
     // this._publicKey = keys.publicKey;
 
     // let privatePEM = forge.pki.privateKeyToPem(this._privateKey);
-    // privatePEM = privatePEM.replaceAll(/\\n/g, '\n');
-    // privatePEM = privatePEM.replaceAll('\r', '');
+    // privatePEM = privatePEM.replace(/\\n/g, '\n');
+    // privatePEM = privatePEM.replace('\r', '');
     // ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
 
     // let publicPEM = forge.pki.publicKeyToPem(this._publicKey);
@@ -389,7 +399,7 @@ ZitiEnroller.prototype.createEphemeralCert = async function() {
 
     let certPEM = res.data.certificate;
 
-    let flatcert = certPEM.replaceAll(/\\n/g, '\n');
+    let flatcert = certPEM.replace(/\\n/g, '\n');
 
     let certificate;
     try {
@@ -497,7 +507,7 @@ ZitiEnroller.prototype.enrollOTF = async function() {
 
     certPEM = res.data.cert;
 
-    let flatcert = certPEM.replaceAll(/\\n/g, '\n');
+    let flatcert = certPEM.replace(/\\n/g, '\n');
 
     let certificate;
     try {
@@ -582,7 +592,7 @@ ZitiEnroller.prototype.enrollOTT = async function() {
       certPEM = await blob.text();
     }  
 
-    let flatcert = certPEM.replaceAll(/\\n/g, '\n');
+    let flatcert = certPEM.replace(/\\n/g, '\n');
 
     let certificate;
     try {
@@ -766,13 +776,13 @@ ZitiEnroller.prototype.generateKeyPair = async function() {
         self._publicKey = state.keys.publicKey
 
         let privatePEM = forge.pki.privateKeyToPem(self._privateKey);
-        privatePEM = privatePEM.replaceAll(/\\n/g, '\n');
-        privatePEM = privatePEM.replaceAll('\r', '');
+        privatePEM = privatePEM.replace(/\\n/g, '\n');
+        privatePEM = privatePEM.replace('\r', '');
         await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
     
         let publicPEM = forge.pki.publicKeyToPem(self._publicKey);
-        publicPEM = publicPEM.replaceAll(/\\n/g, '\n');
-        publicPEM = publicPEM.replaceAll('\r', '');
+        publicPEM = publicPEM.replace(/\\n/g, '\n');
+        publicPEM = publicPEM.replace('\r', '');
         await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY, publicPEM, new Date(8640000000000000));    
 
         // error.setProgress('KeyPair Generation Complete');

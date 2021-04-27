@@ -21,6 +21,7 @@ const formatMessage   = require('format-message');
 const { PassThrough } = require('readable-stream')
 const Mutex           = require('async-mutex');
 const Cookies         = require('js-cookie');
+const CookieInterceptor = require('cookie-interceptor');
 
 
 const ZitiContext         = require('./context/context');
@@ -58,6 +59,52 @@ if (!zitiConfig.serviceWorker.active) {
 class ZitiClient {
 
   constructor() {
+
+    CookieInterceptor.init(); // Hijack the `document.cookie` object
+
+    CookieInterceptor.write.use( async function ( cookie ) {
+
+      console.log('=====> CookieInterceptor sees write of Cookie: ', cookie);
+
+      const release = await ziti._cookiemutex.acquire();
+
+      let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+      if (isNull(zitiCookies)) {
+        zitiCookies = {}
+      }
+      console.log('=====> CookieInterceptor ZITI_COOKIES (before): ', zitiCookies);
+
+      let name = cookie.substring(0, cookie.indexOf("="));
+      let value = cookie.substring(cookie.indexOf("=") + 1);
+      let cookie_value = value.substring(0, value.indexOf(";"));
+      let parts = value.split(";");
+      let cookiePath;
+      let expires;
+      for (let j = 0; j < parts.length; j++) {
+        let part = parts[j].trim();
+        part = part.toLowerCase();
+        if ( part.startsWith("path") ) {
+          cookiePath = part.substring(part.indexOf("=") + 1);
+        }
+        else if ( part.startsWith("expires") ) {
+          expires = new Date( part.substring(part.indexOf("=") + 1) );
+        }
+        else if ( part.startsWith("httponly") ) {
+          httpOnly = true;
+        }
+      }
+
+      zitiCookies[name] = cookie_value;
+
+      console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
+
+      await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+
+      release();
+
+      return cookie;
+    });    
+
   }
 
 
@@ -350,6 +397,18 @@ class ZitiClient {
   
       req.on('response', async res => {
         let body = res.pipe(new PassThrough());
+
+        if (req.path === '/oauth/google/login') {
+          let location = res.headers.location;
+          if (!isUndefined(location)) {
+            location = location.replace(`redirect_uri=${zitiConfig.httpAgent.target.scheme}%`, `redirect_uri=https%`);            
+            let targetHost = `${zitiConfig.httpAgent.target.host}`;
+            targetHost = targetHost.toLowerCase();
+            location = location.replace(`${targetHost}`, `${zitiConfig.httpAgent.self.host}`);
+            res.headers.location = location;
+          }
+        }
+
         const response_options = {
           url: request.url,
           status: res.statusCode,
@@ -360,6 +419,49 @@ class ZitiClient {
           counter: request.counter
         };
         let response = new HttpResponse(body, response_options);
+
+        for (const hdr in response_options.headers) {
+          if (response_options.headers.hasOwnProperty(hdr)) {
+            if (hdr === 'set-cookie') {
+              let cookieArray = response_options.headers[hdr];
+              let cookiePath;
+              let expires;
+              let httpOnly = false;
+  
+              let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+              if (isNull(zitiCookies)) {
+                zitiCookies = {}
+              }
+  
+              for (let i = 0; i < cookieArray.length; i++) {
+  
+                let cookie = cookieArray[i];
+                let name = cookie.substring(0, cookie.indexOf("="));
+                let value = cookie.substring(cookie.indexOf("=") + 1);
+                let cookie_value = value.substring(0, value.indexOf(";"));
+                let parts = value.split(";");
+                for (let j = 0; j < parts.length; j++) {
+                  let part = parts[j].trim();
+                  if ( part.startsWith("Path") ) {
+                    cookiePath = part.substring(part.indexOf("=") + 1);
+                  }
+                  else if ( part.startsWith("Expires") ) {
+                    expires = new Date( part.substring(part.indexOf("=") + 1) );
+                  }
+                  else if ( part.startsWith("HttpOnly") ) {
+                    httpOnly = true;
+                  }
+                }
+  
+  
+                zitiCookies[name] = cookie_value;
+  
+                await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+              }
+            }
+          }
+        }
+  
         resolve(response);
       });
     });
@@ -373,6 +475,7 @@ const ziti = new ZitiClient();
 ziti.LogLevel = LogLevel;
 
 ziti._mutex = new Mutex.Mutex();
+ziti._cookiemutex = new Mutex.Mutex();
 
 ziti.VERSION = pjson.version;
 
@@ -592,10 +695,6 @@ zitiFetch = async ( url, opts ) => {
                 }
               }
 
-              Cookies.set(name, cookie_value, { 
-                expires: expires,
-                path: cookiePath
-              });
 
               zitiCookies[name] = cookie_value;
 
@@ -619,6 +718,13 @@ if (!zitiConfig.serviceWorker.active) {
   window.WebSocket = ZitiWebSocketWrapper;
 }
 
+if (typeof window !== 'undefined') {
+  if (typeof window.fetch !== 'undefined') {
+    window.fetch = zitiFetch;
+    window.XMLHttpRequest = ZitiXMLHttpRequest;
+    window.WebSocket = ZitiWebSocketWrapper;
+  }
+}
 
 /**
  * 
@@ -649,17 +755,20 @@ _onMessage_setControllerApi = async ( event ) => {
 _onMessage_generateKeyPair = async ( event ) => {
   let pki = new ZitiPKI(ZitiPKI.prototype);
   await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  await pki.generateKeyPair();  // await keypair calculation complete
+  let neededToGenerateKeyPair = await pki.generateKeyPair();  // await keypair calculation complete
 
-  let updb = new ZitiUPDB(ZitiUPDB.prototype);
-  await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  await updb.awaitLoginFormComplete();  // await user creds input
-  updb.closeLoginForm();
+  if (neededToGenerateKeyPair) {
+
+    let updb = new ZitiUPDB(ZitiUPDB.prototype);
+    await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+    await updb.awaitLoginFormComplete();  // await user creds input
+    updb.closeLoginForm();
+
+    // Reload the page now that we have obtained the UPDB creds
+    setTimeout(function(){ window.location.reload() }, 1000);
+  }
 
   _sendResponse( event, 'OK' );
-
-  // Reload the page now that we have obtained the UPDB creds
-  setTimeout(function(){ window.location.reload() }, 1000);
 }
 
 
@@ -727,10 +836,10 @@ _onMessage_nop = async ( event ) => {
   _sendResponse( event, 'nop OK' );
 }
 
-var some_cookies = Cookies.get();
-if (!isUndefined(some_cookies)) {
-  ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, some_cookies, new Date(8640000000000000));
-}
+// var some_cookies = Cookies.get();
+// if (!isUndefined(some_cookies)) {
+//   ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, some_cookies, new Date(8640000000000000));
+// }
 
 
 if ('serviceWorker' in navigator) {

@@ -154,7 +154,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
     let haveKeys = await self._haveKeypair();
     if (haveKeys) {
       self.logger.info('Pre-existing KeyPair found; skipping new keypair generation');
-      resolve();
+      resolve( false );
       return;
     }
 
@@ -241,7 +241,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
           MicroModal.close('ziti-keypair-modal');
         }
 
-        resolve();
+        resolve( true );
       }
     };
 

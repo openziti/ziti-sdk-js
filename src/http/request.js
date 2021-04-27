@@ -214,21 +214,28 @@ HttpRequest.prototype.getRequestOptions = async function() {
 		throw new Error('Only HTTP(S) protocols are supported');
 	}
 
-	headers.set('Host', parsedURL.hostname + ":" + parsedURL.port);
+	if (parsedURL.port !== '') {
+		headers.set('Host', parsedURL.hostname + ":" + parsedURL.port);
+	} else {
+		headers.set('Host', parsedURL.hostname);
+	}
 
 	let cookies = Cookies.get();
 
 	let cookieValue = '';
 	for (const cookie in cookies) {
         if (cookies.hasOwnProperty(cookie)) {
-			cookieValue += cookie + '=' + cookies[cookie] + ';';
+			if (cookies[cookie] !== '') {
+				cookieValue += cookie + '=' + cookies[cookie] + ';';
+			}
 		}
 	}
 	if (!isUndefined(cookies)) {
 		if (cookieValue !== '') {
 			headers.set('Cookie', cookieValue);
 		}
-	} else {
+	} 
+	if (cookieValue === '') {
 
 		let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
 

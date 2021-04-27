@@ -60,6 +60,8 @@ function formValidation()
     return undefined;
   }
 
+  error.setMessage('');
+
   return { username: username.value, password: password.value };
 }
 

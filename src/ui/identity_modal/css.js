@@ -44,6 +44,8 @@ exports.inject = () => {
 	  .wrapper {
 		margin-top: 80px;
 		margin-bottom: 80px;
+		position: relative; 
+		z-index: 999;
 	  }
 	  
 	  .form-signin {
@@ -89,12 +91,12 @@ exports.inject = () => {
 	  }
 	  
 	  .form-signin-button {
-		background-image: linear-gradient(to bottom right, #0e61ed , #ee044f);
+		background-image: linear-gradient(to bottom right, #082481 , #e00043);
 	  }
   
   	.modal {
 	  	font-family: -apple-system,BlinkMacSystemFont,avenir next,avenir,helvetica neue,helvetica,ubuntu,roboto,noto,segoe ui,arial,sans-serif;
-	  	background-image: linear-gradient(to bottom right, #0e61ed , #ee044f);
+	  	background-image: linear-gradient(to bottom right, #082481 , #e00043);
 		position: fixed;
 		top: 0;
 		right: 0;
@@ -150,6 +152,17 @@ exports.inject = () => {
 	  box-sizing: border-box;
 	  font-family: sans-serif;
 	}
+
+	.modal__title span {
+		display: block;
+		position: absolute;
+		height: 16px;
+		top: 50%;
+		margin-top: -14px;
+		margin-left: 32px;
+		font-size: 18px;
+	}
+	
 	
 	.modal__close {
 	  background: transparent;

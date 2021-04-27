@@ -41,15 +41,15 @@ module.exports = class Messages {
    * @returns {Promise}
    */
   create(messageId, fn, timeout) {
-    this._ctx.logger.debug("messages.create(): conn[%d] messageId[%o]", (this._conn ? this._conn.getId() : 'n/a'), messageId);
+    this._ctx.logger.trace("messages.create(): conn[%d] messageId[%o]", (this._conn ? this._conn.getId() : 'n/a'), messageId);
     this._rejectExistingMessage(messageId);
     return this._createNewMessage(messageId, fn, timeout);
   }
 
   resolve(messageId, data) {
-    this._ctx.logger.debug("messages.resolve(): conn[%d] messageId[%o] data[%o]", (this._conn ? this._conn.getId() : 'n/a'), messageId, data);
+    this._ctx.logger.trace("messages.resolve(): conn[%d] messageId[%o] data[%o]", (this._conn ? this._conn.getId() : 'n/a'), messageId, data);
     if (!isNull(messageId) && this._items.has(messageId)) {
-      this._ctx.logger.debug("messages.resolve(): messageId: [%o] FOUND.", messageId);
+      this._ctx.logger.trace("messages.resolve(): messageId: [%o] FOUND.", messageId);
       this._items.get(messageId).resolve(data);
     }
   }

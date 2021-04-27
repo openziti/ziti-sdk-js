@@ -161,8 +161,11 @@ ZitiUPDB.prototype.promptForCreds = async function() {
 
   if (typeof window !== 'undefined') {
 
-    identityModalCSS.inject();
-    updbModalHTML.inject();
+    if (!self.identityModalInjected) {
+      identityModalCSS.inject();
+      updbModalHTML.inject();
+      self.identityModalInjected = true;
+    }
 
     this._loginFormValues = undefined;
     identityModalLogin.injectButtonHandler( async function( results ) { 

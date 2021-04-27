@@ -116,11 +116,11 @@ class ZitiSocket extends EventEmitter {
      */
     captureResponseData(conn, data) {
 
-        conn.getCtx().logger.debug("captureResponseData() <- conn: [%d], data: [%s]", conn.getId(), data);
+        conn.getCtx().logger.trace("captureResponseData() <- conn: [%d], data: [%o]", conn.getId(), data);
 
         let zitiSocket = conn.getSocket();
 
-        conn.getCtx().logger.debug("captureResponseData() <- zitiSocket: [%o]", zitiSocket);
+        conn.getCtx().logger.trace("captureResponseData() <- zitiSocket: [%o]", zitiSocket);
 
         zitiSocket.emit('data', data);
     }
