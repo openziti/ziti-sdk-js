@@ -227,12 +227,8 @@ OutgoingMessage.prototype.destroy = function destroy(error) {
 
 // This abstract either writing directly to the socket or buffering it.
 OutgoingMessage.prototype._send = function _send(data, encoding, callback) {
-  // This is a shameful hack to get the headers and first body chunk onto
-  // the same packet. Future versions of Node are going to take care of
-  // this at a lower level and in a more general way.
   if (!this._headerSent) {
-    if (typeof data === 'string' &&
-        (encoding === 'utf8' || encoding === 'latin1' || !encoding)) {
+    if (typeof data === 'string' && (encoding === 'utf8' || encoding === 'latin1' || !encoding)) {
       data = this._header + data;
     } else {
       const header = this._header;
@@ -264,7 +260,7 @@ function _writeRaw(data, encoding, callback) {
     encoding = null;
   }
 
-  if (conn && conn._httpMessage === this && conn.writable) {
+  if (conn && conn._httpMessage === this) {
     // There might be pending data in the this.output buffer.
     if (this.outputData.length) {
       this._flushOutput(conn);

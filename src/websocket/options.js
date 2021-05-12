@@ -50,16 +50,26 @@ module.exports = {
      * @param {String} url
      * @returns {WebSocket}
      */
-    createWebSocket: url => new RobustWebSocket(url, null, {
-        timeout: 5000, // milliseconds to wait before a connection is considered to have timed out
-        shouldReconnect: function(event, ws) {
-            if (event.code === 1008 || event.code === 1011) return; // Do not reconnect on 1008 (HTTP 400 equivalent) and 1011 (HTTP 500 equivalent) 
-            return Math.pow(2.0, ws.attempts) * 1000;    // reconnect with exponential back-off
-        },
-        automaticOpen: true,
-        ignoreConnectivityEvents: false
-    }),
-  
+    // createWebSocket: url => new RobustWebSocket(url, null, {
+    //     timeout: 5000, // milliseconds to wait before a connection is considered to have timed out
+    //     shouldReconnect: function(event, ws) {
+    //         if (event.code === 1008 || event.code === 1011) return; // Do not reconnect on 1008 (HTTP 400 equivalent) and 1011 (HTTP 500 equivalent) 
+    //         return Math.pow(2.0, ws.attempts) * 1000;    // reconnect with exponential back-off
+    //     },
+    //     automaticOpen: true,
+    //     ignoreConnectivityEvents: false
+    // }),
+
+    createWebSocket: url => {
+        let ws;
+        if (typeof window === 'undefined') { // if running from service-worker
+            ws = new WebSocket( url );
+        } else {
+            ws = new realWebSocket( url );
+        }
+        return ws;
+    },
+    
     /**
      * See {@link Options.packMessage}
      *

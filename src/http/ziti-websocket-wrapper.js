@@ -581,6 +581,9 @@ async function initAsClient(websocket, address, protocols, options) {
             newUrl.protocol = "http:";
             opts.href = newUrl.toString().toLowerCase();
             opts.origin = "http://" + (zitiConfig.httpAgent.target.host).toLowerCase();
+            if (zitiConfig.httpAgent.target.port !== '80') {
+              opts.origin += ":" + zitiConfig.httpAgent.target.port;
+            }
             opts.host = zitiConfig.httpAgent.target.host + ":" + zitiConfig.httpAgent.target.port;
         }
 
