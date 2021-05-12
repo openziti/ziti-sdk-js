@@ -64,7 +64,7 @@ exports.inject = () => {
             </footer>
             
             <p class="ziti-footer" >
-                In order to access this application, you must be pre-enrolled into the Ziti network.
+                To access this application, you must be enrolled in the Ziti network.
             </p>
         </div>
     

@@ -25,12 +25,11 @@ limitations under the License.
 const Cookies = require('js-cookie');
 const HttpHeaders = require('./headers.js');
 const HttpBody = require('./body');
+const ZitiFormData = require('./form-data');
 const ls = require('../utils/localstorage');
 const zitiConstants = require('../constants');
 const isNull = require('lodash.isnull');
 const clone = HttpBody.clone;
-// const extractContentType = HttpBody.extractContentType;
-// const getTotalBytes = HttpBody.getTotalBytes;
 var pjson = require('../../package.json');
 const isUndefined = require('lodash.isundefined');
 
@@ -123,6 +122,10 @@ function HttpRequest(serviceNameOrConn, input, init = {}) {
 	});
 
 	const headers = new HttpHeaders(init.headers || input.headers || {});
+
+	if (this.body instanceof ZitiFormData) {
+		inputBody = this.body;
+	}
 
 	if (inputBody != null && !headers.has('Content-Type')) {
 		const contentType = this.extractContentType(inputBody);
@@ -244,11 +247,14 @@ HttpRequest.prototype.getRequestOptions = async function() {
 			for (const cookie in zitiCookies) {
 				if (zitiCookies.hasOwnProperty(cookie)) {
 					cookieValue += cookie + '=' + zitiCookies[cookie] + ';';
+
+					if (cookie === 'MMCSRF') {
+						headers.set('X-CSRF-Token', zitiCookies[cookie]);
+					}		
 				}
 			}
 
-			headers.set('Cookie', cookieValue);
-		
+			headers.set('Cookie', cookieValue);	
 		}
 	}
 
@@ -259,6 +265,7 @@ HttpRequest.prototype.getRequestOptions = async function() {
 		contentLengthValue = '0';
 	}
 	if (this.body != null) {
+		this.body.get
 		const totalBytes = this.getTotalBytes(this.body);
 		if (typeof totalBytes === 'number') {
 			contentLengthValue = String(totalBytes);

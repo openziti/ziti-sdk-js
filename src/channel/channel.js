@@ -78,6 +78,8 @@ module.exports = class ZitiChannel {
 
     this._zws.onClose.addListener(this._recvClose, this);
 
+    this._zws.onSend.addListener(this._recvSend, this);
+
     this._createHelloController();
 
     // Set the maximum timestamp
@@ -607,10 +609,18 @@ module.exports = class ZitiChannel {
   sendMessageNoWait(contentType, headers, body, options = {}) {
     const timeout = options.timeout !== undefined ? options.timeout : this._timeout;
     const messageId = options.sequence || this._sequence;
-    this._ctx.logger.debug("send (no wait) -> conn[%o] seq[%o] contentType[%o]", 
+    // this._ctx.logger.debug("send (no wait) -> conn[%o] seq[%o] contentType[%o]", 
+    //   (options.conn ? options.conn.getId() : 'n/a'), 
+    //   messageId, 
+    //   contentType, 
+    //   (body ? body.toString() : 'n/a'));
+
+    this._ctx.logger.debug("send (no wait) -> conn[%o] seq[%o] contentType[%o] bodyLen[%o] ", 
       (options.conn ? options.conn.getId() : 'n/a'), 
       messageId, contentType, 
-      (body ? body.toString() : 'n/a'));
+      (body ? body.length : 'n/a'),
+      (body ? body.toString() : 'n/a')
+      );
 
     this._sendMarshaled(contentType, headers, body, options, messageId);
   }
@@ -657,6 +667,7 @@ module.exports = class ZitiChannel {
     }
 
     const wireData = this._marshalMessage(contentType, headers, dataToMarshal, options, messageId);
+    this._ctx.logger.trace("_sendMarshaled -> wireDataLen[%o] ", wireData.byteLength);
 
     this._dumpHeaders(' -> ', wireData);
 
@@ -772,6 +783,9 @@ module.exports = class ZitiChannel {
     }
     
     // Put it all together
+    this._ctx.logger.trace("_marshalMessage -> buffer_message_section Len[%o] ", buffer_message_section.byteLength);
+    this._ctx.logger.trace("_marshalMessage -> buffer_headers_section Len[%o] ", buffer_headers_section.byteLength);
+    this._ctx.logger.trace("_marshalMessage -> buffer_body_section Len[%o] ", buffer_body_section.byteLength);
     let buffer_combined = utils.appendBuffer(buffer_message_section, buffer_headers_section);
     buffer_combined = utils.appendBuffer(buffer_combined, buffer_body_section);
     let view_combined = new Uint8Array(buffer_combined);
@@ -779,6 +793,18 @@ module.exports = class ZitiChannel {
     return view_combined.buffer;
   }
 
+
+  /**
+   * Receives a send event from the Websocket.
+   * 
+   * @param {*} data 
+   */
+  async _recvSend(data) {
+
+    this._ctx.logger.debug('_recvSend -> sentLen[%o] bufferedLen[%o]', data.byteLength, this._zws._ws.bufferedAmount);
+  
+  }
+  
 
   /**
    * Receives a close event from the Websocket.
@@ -967,6 +993,12 @@ module.exports = class ZitiChannel {
           } catch (e) { /* nop */ }
 
           bodyView = unencrypted_data.message;
+        } else {
+          let len = bodyView.length;
+          if (len > 2000) {
+            len = 2000;
+          }
+          this._ctx.logger.debug("recv <- data (first 2000): %s", String.fromCharCode.apply(null, bodyView).substring(0, len));
         }
       }
 

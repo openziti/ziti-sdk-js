@@ -88,7 +88,7 @@ class ZitiSocket extends EventEmitter {
                      * on_data callback
                      */
                     (data) => {
-                        logger.info('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
+                        // logger.info('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
                         this.readableZitiStreamController.enqueue(data);
                     },
                 );
@@ -116,7 +116,8 @@ class ZitiSocket extends EventEmitter {
      */
     captureResponseData(conn, data) {
 
-        conn.getCtx().logger.trace("captureResponseData() <- conn: [%d], data: [%o]", conn.getId(), data);
+        conn.getCtx().logger.trace("captureResponseData() <- conn: [%d], dataLen: [%o]", conn.getId(), data.byteLength);
+        // conn.getCtx().logger.trace("captureResponseData() <- conn: [%d], data: [%o]", conn.getId(), data);
 
         let zitiSocket = conn.getSocket();
 
@@ -202,7 +203,7 @@ class ZitiSocket extends EventEmitter {
             throw new Error('chunk type of [' + typeof chunk + '] is not a supported type');
         }
         if (buffer.length > 0) {
-            const conn = await this.getZitiConnection().catch((e) => logger.error('inside ziti-socket.js _write(), Error 1: ', e.message));
+            const conn = await this.getZitiConnection().catch((e) => conn.getCtx().logger.error('inside ziti-socket.js _write(), Error 1: ', e.message));
 
             let ch = conn.getChannel();
 

@@ -19,9 +19,8 @@ const Blob = require('./blob');
 const Stream = require('readable-stream');
 
 const BUFFER = Blob.BUFFER;
-// const BUFFER = Symbol('buffer');
 
-const FormData = require('./form-data');
+const ZitiFormData = require('./form-data');
 
 let convert;
 
@@ -67,18 +66,19 @@ function HttpBody(body, init = {
 	// 	// detect form data input from form-data module
 	// 	// return `multipart/form-data;boundary=${body.getBoundary()}`;
 	} else if (typeof body === 'object' && typeof body.getAll === 'function') {
-	// 	// detect FormData object
-		ziti._ctx.logger.info('extractContentType() FormData DETECTED for: %o', body);
-		var form = new FormData();
+		// detect FormData object
+		ziti._ctx.logger.debug('extractContentType() FormData DETECTED for: %o', body);
+		var form = new ZitiFormData();
+		var lastkey;
 		for (var key of body.keys()) {
-			ziti._ctx.logger.info('key is: ', key);
-			ziti._ctx.logger.info('val is: ', body.get(key));
-			form.append(key, body.get(key));
+			lastkey = key;
+		}
+		for (var key of body.keys()) {
+			form.append(key, body.get(key), { lastkey: (key === lastkey ? true : false) });
 		 }
-		 ziti._ctx.logger.info('form is: %o', form);
-		 ziti._ctx.logger.info('getHeaders() says: %o', form.getHeaders());
+		 body = form;
 
-	// 	// return `multipart/form-data;boundary=${form.getBoundary()}`;
+		// return `multipart/form-data;boundary=${form.getBoundary()}`;
 	// } else if (body instanceof ReadableStream) {
 	// 	// body is readable stream
 	} else {
@@ -270,16 +270,15 @@ HttpBody.prototype.extractContentType = function(body) {
 	} else if (typeof body === 'object' && typeof body.getAll === 'function') {
 		// detect FormData object
 		ziti._ctx.logger.info('extractContentType() FormData DETECTED for: %o', body);
-		var form = new FormData();
-		for (var key of body.keys()) {
-			ziti._ctx.logger.info('key is: ', key);
-			ziti._ctx.logger.info('val is: ', body.get(key));
-			// form.append(key, body.get(key));
-		 }
-		 ziti._ctx.logger.info('form is: %o', form);
-		 ziti._ctx.logger.info('getHeaders() says: %o', form.getHeaders());
+		// for (var key of body.keys()) {
+		// 	ziti._ctx.logger.info('key is: ', key);
+		// 	ziti._ctx.logger.info('val is: ', body.get(key));
+		// 	// form.append(key, body.get(key));
+		//  }
+		//  ziti._ctx.logger.debug('form is: %o', body);
+		//  ziti._ctx.logger.debug('getHeaders() says: %o', body.getHeaders());
 
-		return `multipart/form-data;boundary=${form.getBoundary()}`;
+		return `multipart/form-data;boundary=${body.getBoundary()}`;
 	// 	// return null;
 	} else if (body instanceof Stream) {
 		// body is stream

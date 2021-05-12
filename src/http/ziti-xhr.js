@@ -282,13 +282,13 @@ function ZitiXMLHttpRequest () {
 
     settings.body = data;
 
-    self.response = await fetch(settings.url, settings);
+    response = await fetch(settings.url, settings);
 
-    self.status = self.response.status;
+    self.status = response.status;
 
-    self.response.blob().then(async function(blob) {
+    response.blob().then(async function(blob) {
       self.responseBodyText = await blob.text();
-      self.responseText = self.responseBodyText;
+      self.response = self.responseBodyText;
       sendFlag = false;
       setState(self.DONE);
     });

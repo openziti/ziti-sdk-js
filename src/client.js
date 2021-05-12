@@ -29,6 +29,8 @@ const ZitiConnection      = require('./channel/connection');
 const ZitiTLSConnection   = require('./channel/tls-connection');
 const HttpRequest         = require('./http/request');
 const HttpResponse        = require('./http/response');
+const ZitiFormData        = require('./http/form-data');
+const BrowserStdout       = require('./http/browser-stdout')
 const http                = require('./http/http');
 const ZitiXMLHttpRequest  = require('./http/ziti-xhr');
 const ZitiWebSocketWrapper = require('./http/ziti-websocket-wrapper');
@@ -60,50 +62,54 @@ class ZitiClient {
 
   constructor() {
 
-    CookieInterceptor.init(); // Hijack the `document.cookie` object
+    if (!zitiConfig.serviceWorker.active) {
 
-    CookieInterceptor.write.use( async function ( cookie ) {
+      CookieInterceptor.init(); // Hijack the `document.cookie` object
 
-      console.log('=====> CookieInterceptor sees write of Cookie: ', cookie);
+      CookieInterceptor.write.use( async function ( cookie ) {
 
-      const release = await ziti._cookiemutex.acquire();
+        console.log('=====> CookieInterceptor sees write of Cookie: ', cookie);
 
-      let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
-      if (isNull(zitiCookies)) {
-        zitiCookies = {}
-      }
-      console.log('=====> CookieInterceptor ZITI_COOKIES (before): ', zitiCookies);
+        const release = await ziti._cookiemutex.acquire();
 
-      let name = cookie.substring(0, cookie.indexOf("="));
-      let value = cookie.substring(cookie.indexOf("=") + 1);
-      let cookie_value = value.substring(0, value.indexOf(";"));
-      let parts = value.split(";");
-      let cookiePath;
-      let expires;
-      for (let j = 0; j < parts.length; j++) {
-        let part = parts[j].trim();
-        part = part.toLowerCase();
-        if ( part.startsWith("path") ) {
-          cookiePath = part.substring(part.indexOf("=") + 1);
+        let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+        if (isNull(zitiCookies)) {
+          zitiCookies = {}
         }
-        else if ( part.startsWith("expires") ) {
-          expires = new Date( part.substring(part.indexOf("=") + 1) );
+        console.log('=====> CookieInterceptor ZITI_COOKIES (before): ', zitiCookies);
+
+        let name = cookie.substring(0, cookie.indexOf("="));
+        let value = cookie.substring(cookie.indexOf("=") + 1);
+        let cookie_value = value.substring(0, value.indexOf(";"));
+        let parts = value.split(";");
+        let cookiePath;
+        let expires;
+        for (let j = 0; j < parts.length; j++) {
+          let part = parts[j].trim();
+          part = part.toLowerCase();
+          if ( part.startsWith("path") ) {
+            cookiePath = part.substring(part.indexOf("=") + 1);
+          }
+          else if ( part.startsWith("expires") ) {
+            expires = new Date( part.substring(part.indexOf("=") + 1) );
+          }
+          else if ( part.startsWith("httponly") ) {
+            httpOnly = true;
+          }
         }
-        else if ( part.startsWith("httponly") ) {
-          httpOnly = true;
-        }
-      }
 
-      zitiCookies[name] = cookie_value;
+        zitiCookies[name] = cookie_value;
 
-      console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
+        console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
 
-      await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+        await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
 
-      release();
+        release();
 
-      return cookie;
-    });    
+        return cookie;
+      });
+
+    }
 
   }
 
@@ -636,7 +642,37 @@ zitiFetch = async ( url, opts ) => {
       req = http.request(options);
 
       if (options.body) {
-        req.write( options.body );
+        if (options.body instanceof Promise) {
+          let chunk = await options.body;
+          req.write( chunk );
+        }
+        else if (options.body instanceof ZitiFormData) {
+
+          let p = new Promise((resolve, reject) => {
+
+            let stream = options.body.getStream();
+
+            stream.on('error', err => {
+              reject(new Error(`${err.message}`));
+            });
+
+            stream.on('end', () => {
+              try {
+                resolve();
+              } catch (err) {
+                reject(new Error(`${err.message}`));
+              }
+            });
+
+            stream.pipe(BrowserStdout({req: req}))
+          });
+
+          await p;
+
+        }
+        else {
+          req.write( options.body );
+        }
       }
 
       req.end();
@@ -841,55 +877,56 @@ _onMessage_nop = async ( event ) => {
 //   ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, some_cookies, new Date(8640000000000000));
 // }
 
+if (!zitiConfig.serviceWorker.active) {
+  if ('serviceWorker' in navigator) {
 
-if ('serviceWorker' in navigator) {
+    /**
+     *  Service Worker registration
+     */
+    navigator.serviceWorker.register('ziti-sw.js', {scope: './'} ).then( function() {
 
-  /**
-   *  Service Worker registration
-   */
-  navigator.serviceWorker.register('ziti-sw.js', {scope: './'} ).then( function() {
-
-      if (navigator.serviceWorker.controller) {
-          // If .controller is set, then this page is being actively controlled by our service worker.
-          console.log('The Ziti service worker is now registered.');
-      } else {
-          // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
-          // control. Until that happens, the service worker's fetch handler won't be used.
-          console.log('Please reload this page to allow the Ziti service worker to handle network operations.');
-      }
-  }).catch(function(error) {
-      // Something went wrong during registration.
-      console.error(error);
-  });
+        if (navigator.serviceWorker.controller) {
+            // If .controller is set, then this page is being actively controlled by our service worker.
+            console.log('The Ziti service worker is now registered.');
+        } else {
+            // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
+            // control. Until that happens, the service worker's fetch handler won't be used.
+            // console.log('Please reload this page to allow the Ziti service worker to handle network operations.');
+        }
+    }).catch(function(error) {
+        // Something went wrong during registration.
+        console.error(error);
+    });
 
 
-  /**
-   *  Service Worker 'message' handler'
-   */
-  navigator.serviceWorker.addEventListener('message', event => {
-      console.log('----- Client received msg from serviceWorker: ', event);
+    /**
+     *  Service Worker 'message' handler'
+     */
+    navigator.serviceWorker.addEventListener('message', event => {
+        console.log('----- Client received msg from serviceWorker: ', event);
 
-           if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
-      else if (event.data.command === 'generateKeyPair')      { _onMessage_generateKeyPair( event ); }
-      else if (event.data.command === 'setControllerApi')     { _onMessage_setControllerApi( event ); }
-      else if (event.data.command === 'awaitIdentityLoaded')  { _onMessage_awaitIdentityLoaded( event ); }
-      else if (event.data.command === 'purgeCert')            { _onMessage_purgeCert( event ); }
+            if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
+        else if (event.data.command === 'generateKeyPair')      { _onMessage_generateKeyPair( event ); }
+        else if (event.data.command === 'setControllerApi')     { _onMessage_setControllerApi( event ); }
+        else if (event.data.command === 'awaitIdentityLoaded')  { _onMessage_awaitIdentityLoaded( event ); }
+        else if (event.data.command === 'purgeCert')            { _onMessage_purgeCert( event ); }
+        
+        else if (event.data.command === 'nop')                  { _onMessage_nop( event ); }
+
+        else { throw new Error('unknown message.command received [' + event.data.command + ']'); }
+    });
+
+
+    /**
+     * 
+     */
+    navigator.serviceWorker.startMessages();
+
       
-      else if (event.data.command === 'nop')                  { _onMessage_nop( event ); }
-
-      else { throw new Error('unknown message.command received [' + event.data.command + ']'); }
-  });
-
-
-  /**
-   * 
-   */
-  navigator.serviceWorker.startMessages();
-
-     
-} else {
-  console.error("The current browser doesn't support service workers");
-}  
+  } else {
+    console.error("The current browser doesn't support service workers");
+  }
+}
 
 
 /**

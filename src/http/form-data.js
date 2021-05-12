@@ -14,17 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-var CombinedStream = require('combined-stream');
 var util = require('util');
 var path = require('path');
 var http = require('http');
 var https = require('https');
 var parseUrl = require('url').parse;
 var fs = require('fs');
-var Stream = require('stream').Stream;
+// var Stream = require('stream').Stream;
+const {
+  Readable,
+  Writable,
+  Transform,
+  Duplex,
+  pipeline,
+  finished
+} = require('stream-browserify');
 var mime = require('mime-types');
 var asynckit = require('asynckit');
 var populate = require('./populate.js');
+var MultiStream = require('multistream')
+var ZitiFileReaderStream = require('./file-reader-stream');
+const isUndefined = require('lodash.isundefined');
 
 
 /**
@@ -33,8 +43,6 @@ var populate = require('./populate.js');
 
 module.exports = ZitiFormData;
 
-// make it a Stream
-util.inherits(FormData, CombinedStream);
 
 
 /**
@@ -53,8 +61,8 @@ function ZitiFormData(options) {
   this._overheadLength = 0;
   this._valueLength = 0;
   this._valuesToMeasure = [];
+  this._streams = [];
 
-  CombinedStream.call(this);
 
   options = options || {pauseStreams: false};
   for (var option in options) {
@@ -66,7 +74,7 @@ ZitiFormData.LINE_BREAK = '\r\n';
 ZitiFormData.DEFAULT_CONTENT_TYPE = 'application/octet-stream';
 
 
-ZitiFormData.prototype.append = async function(field, value, options) {
+ZitiFormData.prototype.append = function(field, value, options) {
 
   options = options || {};
 
@@ -74,8 +82,6 @@ ZitiFormData.prototype.append = async function(field, value, options) {
   if (typeof options == 'string') {
     options = {filename: options};
   }
-
-  var append = CombinedStream.prototype.append.bind(this);
 
   // all that streamy business can't handle numbers
   if (typeof value == 'number') {
@@ -89,11 +95,54 @@ ZitiFormData.prototype.append = async function(field, value, options) {
   }
 
   var header = this._multiPartHeader(field, value, options);
-  var footer = this._multiPartFooter();
+  // var footer = this._multiPartFooter();
+  var footer = undefined;
+  if (options.lastkey) {
+    footer = ZitiFormData.LINE_BREAK + this._lastBoundary();
+  }
 
-  append(header);
-  append(value);
-  append(footer);
+  var hdrStream = new Readable();
+  hdrStream.push( header );
+  hdrStream.push( null );
+  this._streams.push( hdrStream );
+
+
+  if ( value instanceof File ) {
+
+    options.knownLength = value.size;
+
+    this._streams.push( 
+      ZitiFileReaderStream( 
+        value, 
+        { 
+          chunkSize: 1024 * 8
+        } 
+      ) 
+    );
+
+    var lbStream = new Readable();
+    lbStream.push( ZitiFormData.LINE_BREAK );
+    lbStream.push( null );
+    this._streams.push( lbStream );
+  
+  } else {
+
+    options.knownLength = value.length;
+
+    var vStream = new Readable();
+    vStream.push( value );
+    vStream.push( ZitiFormData.LINE_BREAK );
+    vStream.push( null );
+    this._streams.push( vStream );
+  
+  }
+
+  if (!isUndefined(footer)) {
+    var ftrStream = new Readable();
+    ftrStream.push( footer );
+    ftrStream.push( null );
+    this._streams.push( ftrStream );
+  }
 
   // pass along options.knownLength
   this._trackLength(header, value, options);
@@ -123,9 +172,9 @@ ZitiFormData.prototype._trackLength = function(header, value, options) {
     ZitiFormData.LINE_BREAK.length;
 
   // empty or either doesn't have path or not an http response or not a stream
-  if (!value || ( !value.path && !(value.readable && value.hasOwnProperty('httpVersion')) && !(value instanceof Stream))) {
-    return;
-  }
+  // if (!value || ( !value.path && !(value.readable && value.hasOwnProperty('httpVersion')) && !(value instanceof Stream))) {
+    // return;
+  // }
 
   // no need to bother with the length
   if (!options.knownLength) {
@@ -339,18 +388,29 @@ ZitiFormData.prototype.getBoundary = function() {
   return this._boundary;
 };
 
-ZitiFormData.prototype.getBuffer = function() {
+
+ZitiFormData.prototype.getStream = function() {
+  return new MultiStream( this._streams );
+};
+
+
+ZitiFormData.prototype.getBuffer = async function() {
+
   var dataBuffer = new Buffer.alloc( 0 );
   var boundary = this.getBoundary();
 
   // Create the form content. Add Line breaks to the end of data.
   for (var i = 0, len = this._streams.length; i < len; i++) {
     if (typeof this._streams[i] !== 'function') {
-
       // Add content to the buffer.
-      if(Buffer.isBuffer(this._streams[i])) {
+      if (Buffer.isBuffer(this._streams[i])) {
         dataBuffer = Buffer.concat( [dataBuffer, this._streams[i]]);
-      }else {
+      }
+      else if ( this._streams[i] instanceof File ) {
+        let zfr = new ZitiFileReader( this._streams[i] );
+        let fileBuffer = await zfr.getBuffer();
+        dataBuffer = Buffer.concat( [dataBuffer, fileBuffer ] );
+      } else {
         dataBuffer = Buffer.concat( [dataBuffer, Buffer.from(this._streams[i])]);
       }
 
