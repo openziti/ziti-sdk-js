@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 const EventEmitter = require('events');
+const isUndefined  = require('lodash.isundefined');
 
 
 class ZitiSocket extends EventEmitter {
@@ -171,7 +172,7 @@ class ZitiSocket extends EventEmitter {
         const self = this;
         return new Promise((resolve) => {
             (function waitForConnected() {
-                if (self.zitiConnection) return resolve(self.zitiConnection);
+                if (self.zitiConnection && (!isUndefined(self.zitiConnection.getChannel()))) return resolve(self.zitiConnection);
                 setTimeout(waitForConnected, 10);
             })();
         });
