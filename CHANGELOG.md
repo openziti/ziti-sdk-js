@@ -1,3 +1,12 @@
+## [0.9.2](https://github.com/openziti/ziti-sdk-js/compare/v0.9.1...v0.9.2) (2021-05-12)
+
+
+### Bug Fixes
+
+* POST body streaming enhancements ([#71](https://github.com/openziti/ziti-sdk-js/issues/71)) ([2c66265](https://github.com/openziti/ziti-sdk-js/commit/2c662657378842374f98d3802a08db0afcc29b95))
+
+
+
 ## [0.9.1](https://github.com/openziti/ziti-sdk-js/compare/v0.7.1...v0.9.1) (2021-04-27)
 
 
