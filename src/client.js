@@ -66,45 +66,51 @@ class ZitiClient {
 
       CookieInterceptor.init(); // Hijack the `document.cookie` object
 
-      CookieInterceptor.write.use( async function ( cookie ) {
+      CookieInterceptor.write.use( function ( cookie ) {
 
-        console.log('=====> CookieInterceptor sees write of Cookie: ', cookie);
+        (async function() { // we use an IIFE because we need to run some await calls, and we cannot make
+                            // our write.use() an async func because it will then return a Promise,
+                            // which would cause Cookie storage in the browser to get corrupted.
+          
+          console.log('=====> CookieInterceptor sees write of Cookie: ', cookie);
 
-        const release = await ziti._cookiemutex.acquire();
-
-        let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
-        if (isNull(zitiCookies)) {
-          zitiCookies = {}
-        }
-        console.log('=====> CookieInterceptor ZITI_COOKIES (before): ', zitiCookies);
-
-        let name = cookie.substring(0, cookie.indexOf("="));
-        let value = cookie.substring(cookie.indexOf("=") + 1);
-        let cookie_value = value.substring(0, value.indexOf(";"));
-        let parts = value.split(";");
-        let cookiePath;
-        let expires;
-        for (let j = 0; j < parts.length; j++) {
-          let part = parts[j].trim();
-          part = part.toLowerCase();
-          if ( part.startsWith("path") ) {
-            cookiePath = part.substring(part.indexOf("=") + 1);
+          const release = await ziti._cookiemutex.acquire();
+  
+          let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+          if (isNull(zitiCookies)) {
+            zitiCookies = {}
           }
-          else if ( part.startsWith("expires") ) {
-            expires = new Date( part.substring(part.indexOf("=") + 1) );
+          // console.log('=====> CookieInterceptor ZITI_COOKIES (before): ', zitiCookies);
+  
+          let name = cookie.substring(0, cookie.indexOf("="));
+          let value = cookie.substring(cookie.indexOf("=") + 1);
+          let cookie_value = value.substring(0, value.indexOf(";"));
+          let parts = value.split(";");
+          let cookiePath;
+          let expires;
+          for (let j = 0; j < parts.length; j++) {
+            let part = parts[j].trim();
+            part = part.toLowerCase();
+            if ( part.startsWith("path") ) {
+              cookiePath = part.substring(part.indexOf("=") + 1);
+            }
+            else if ( part.startsWith("expires") ) {
+              expires = new Date( part.substring(part.indexOf("=") + 1) );
+            }
+            else if ( part.startsWith("httponly") ) {
+              httpOnly = true;
+            }
           }
-          else if ( part.startsWith("httponly") ) {
-            httpOnly = true;
-          }
-        }
-
-        zitiCookies[name] = cookie_value;
-
-        console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
-
-        await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
-
-        release();
+  
+          zitiCookies[name] = cookie_value;
+  
+          // console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
+  
+          await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+  
+          release();
+            
+        })()        
 
         return cookie;
       });
@@ -903,7 +909,7 @@ if (!zitiConfig.serviceWorker.active) {
      *  Service Worker 'message' handler'
      */
     navigator.serviceWorker.addEventListener('message', event => {
-        console.log('----- Client received msg from serviceWorker: ', event);
+        console.log('----- Client received msg from serviceWorker: ', event.data.command);
 
             if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
         else if (event.data.command === 'generateKeyPair')      { _onMessage_generateKeyPair( event ); }

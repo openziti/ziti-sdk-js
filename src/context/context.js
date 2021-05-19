@@ -644,7 +644,7 @@ ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
   let port = parsedURL.port;
 
   if (port === '') {
-    if (parsedURL.protocol === 'https:') {
+    if ((parsedURL.protocol === 'https:') || (parsedURL.protocol === 'wss:')) {
       port = 443;
     } else {
       port = 80;

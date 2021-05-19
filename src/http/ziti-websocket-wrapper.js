@@ -374,6 +374,8 @@ class ZitiWebSocketWrapper extends EventEmitter {
       options = {};
     }
 
+    if (typeof data === 'make-socket.io-think-we-are-native') { /* nop */ }
+
     if (typeof data === 'number') data = data.toString();
 
     if (this.readyState !== ZitiWebSocketWrapper.OPEN) {
@@ -569,7 +571,7 @@ async function initAsClient(websocket, address, protocols, options) {
         serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
 
         if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
-            ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', url);
+            ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', address);
             opts.createConnection = isSecure ? tlsConnect : netConnect;
             opts.host = parsedUrl.hostname.startsWith('[')
             ? parsedUrl.hostname.slice(1, -1)
@@ -589,7 +591,7 @@ async function initAsClient(websocket, address, protocols, options) {
 
     } else {  // the request is targeting the raw internet
 
-        ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', url);
+        ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', address);
         opts.createConnection = isSecure ? tlsConnect : netConnect;
         opts.host = parsedUrl.hostname.startsWith('[')
         ? parsedUrl.hostname.slice(1, -1)
@@ -624,7 +626,7 @@ async function initAsClient(websocket, address, protocols, options) {
 
 
     opts.headers.Cookie = cookieString;
-  
+      
     opts.timeout = opts.handshakeTimeout;
     if (!opts.timeout) {
       opts.timeout = handshakeTimeout;

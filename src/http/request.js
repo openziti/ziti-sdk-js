@@ -223,38 +223,41 @@ HttpRequest.prototype.getRequestOptions = async function() {
 		headers.set('Host', parsedURL.hostname);
 	}
 
-	let cookies = Cookies.get();
+	if (!headers.has('Cookie')) {
 
-	let cookieValue = '';
-	for (const cookie in cookies) {
-        if (cookies.hasOwnProperty(cookie)) {
-			if (cookies[cookie] !== '') {
-				cookieValue += cookie + '=' + cookies[cookie] + ';';
-			}
-		}
-	}
-	if (!isUndefined(cookies)) {
-		if (cookieValue !== '') {
-			headers.set('Cookie', cookieValue);
-		}
-	} 
-	if (cookieValue === '') {
+		let cookies = Cookies.get();
 
-		let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
-
-		if (!isNull(zitiCookies)) {
-
-			for (const cookie in zitiCookies) {
-				if (zitiCookies.hasOwnProperty(cookie)) {
-					cookieValue += cookie + '=' + zitiCookies[cookie] + ';';
-
-					if (cookie === 'MMCSRF') {
-						headers.set('X-CSRF-Token', zitiCookies[cookie]);
-					}		
+		let cookieValue = '';
+		for (const cookie in cookies) {
+			if (cookies.hasOwnProperty(cookie)) {
+				if (cookies[cookie] !== '') {
+					cookieValue += cookie + '=' + cookies[cookie] + ';';
 				}
 			}
+		}
+		if (!isUndefined(cookies)) {
+			if (cookieValue !== '') {
+				headers.set('Cookie', cookieValue);
+			}
+		} 
+		if (cookieValue === '') {
 
-			headers.set('Cookie', cookieValue);	
+			let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+
+			if (!isNull(zitiCookies)) {
+
+				for (const cookie in zitiCookies) {
+					if (zitiCookies.hasOwnProperty(cookie)) {
+						cookieValue += cookie + '=' + zitiCookies[cookie] + ';';
+
+						if (cookie === 'MMCSRF') {
+							headers.set('X-CSRF-Token', zitiCookies[cookie]);
+						}		
+					}
+				}
+
+				headers.set('Cookie', cookieValue);	
+			}
 		}
 	}
 
