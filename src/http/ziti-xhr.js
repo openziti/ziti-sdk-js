@@ -288,6 +288,7 @@ function ZitiXMLHttpRequest () {
 
     response.blob().then(async function(blob) {
       self.responseBodyText = await blob.text();
+      self.responseText = self.responseBodyText;
       self.response = self.responseBodyText;
       sendFlag = false;
       setState(self.DONE);

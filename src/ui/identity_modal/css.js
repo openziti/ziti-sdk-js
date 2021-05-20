@@ -89,6 +89,10 @@ exports.inject = () => {
 		border-top-left-radius: 0;
 		border-top-right-radius: 0;
 	  }
+
+	  ::placeholder {
+		color: #9e9e9e;
+	  }
 	  
 	  .form-signin-button {
 		background-image: linear-gradient(to bottom right, #082481 , #e00043);

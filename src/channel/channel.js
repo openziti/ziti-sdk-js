@@ -800,9 +800,9 @@ module.exports = class ZitiChannel {
    * @param {*} data 
    */
   async _recvSend(data) {
-
-    this._ctx.logger.debug('_recvSend -> sentLen[%o] bufferedLen[%o]', data.byteLength, this._zws._ws.bufferedAmount);
-  
+    if (!isUndefined(this._zws)) {
+      this._ctx.logger.debug('_recvSend -> sentLen[%o] bufferedLen[%o]', data.byteLength, this._zws._ws.bufferedAmount);
+    }
   }
   
 
@@ -998,7 +998,25 @@ module.exports = class ZitiChannel {
           if (len > 2000) {
             len = 2000;
           }
-          this._ctx.logger.debug("recv <- data (first 2000): %s", String.fromCharCode.apply(null, bodyView).substring(0, len));
+          let dbgStr = String.fromCharCode.apply(null, bodyView).substring(0, len);
+          this._ctx.logger.debug("recv <- data (first 2000): %s", dbgStr);
+
+          //temp debugging
+          // if (dbgStr.includes("var openMe = (window.parent")) {
+
+          //   let str = String.fromCharCode.apply(null, bodyView).substring(0, bodyView.length);
+
+          //   str = str.replace('var openMe = (window.parent', 'debugger; var openMe = (window.parent');
+
+          // //   str = str.replace('document.cookie = a;', 'document.cookie = a; debugger');
+
+          // //   this._ctx.logger.debug("============== DEBUG INJECT: %s", str);
+
+          //   bodyView = new TextEncoder("utf-8").encode(str);
+          // }
+          
+          // }
+
         }
       }
 

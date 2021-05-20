@@ -32,6 +32,8 @@ const isNull = require('lodash.isnull');
 const clone = HttpBody.clone;
 var pjson = require('../../package.json');
 const isUndefined = require('lodash.isundefined');
+const _split = require('lodash.split');
+const forEach = require('lodash.foreach');
 
 
 const INTERNALS = Symbol('HttpRequest internals');
@@ -223,41 +225,49 @@ HttpRequest.prototype.getRequestOptions = async function() {
 		headers.set('Host', parsedURL.hostname);
 	}
 
-	let cookies = Cookies.get();
+	let cookieObject = {};
 
-	let cookieValue = '';
-	for (const cookie in cookies) {
-        if (cookies.hasOwnProperty(cookie)) {
-			if (cookies[cookie] !== '') {
-				cookieValue += cookie + '=' + cookies[cookie] + ';';
-			}
+	// Obtain all Cookie KV pairs from the incoming Cookie header
+	if (headers.has('Cookie')) {
+		let cookieHdr = headers.get('Cookie');
+		let cookies = _split(cookieHdr, ';' );
+		forEach(cookies, function( cookie ) {
+			let cookieKV = _split(cookie, '=' );
+			cookieObject[cookieKV[0]] = cookieKV[1];		
+		});
+	}
+
+	// Obtain all Cookie KV pairs from the browser Cookie cache
+	let browserCookies = Cookies.get();
+	for (const cookie in browserCookies) {
+		if (browserCookies.hasOwnProperty( cookie )) {
+			cookieObject[cookie] = browserCookies[cookie];
+			if (cookie.includes('CSRF')) {
+				headers.set('X-CSRF-Token', browserCookies[cookie]);
+			}		
 		}
 	}
-	if (!isUndefined(cookies)) {
-		if (cookieValue !== '') {
-			headers.set('Cookie', cookieValue);
-		}
-	} 
-	if (cookieValue === '') {
-
-		let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
-
-		if (!isNull(zitiCookies)) {
-
-			for (const cookie in zitiCookies) {
-				if (zitiCookies.hasOwnProperty(cookie)) {
-					cookieValue += cookie + '=' + zitiCookies[cookie] + ';';
-
-					if (cookie === 'MMCSRF') {
-						headers.set('X-CSRF-Token', zitiCookies[cookie]);
-					}		
+ 
+	// Obtain all Cookie KV pairs from the Ziti Cookie cache
+	let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+	if (!isNull(zitiCookies)) {
+		for (const cookie in zitiCookies) {
+			if (zitiCookies.hasOwnProperty(cookie)) {
+				if (zitiCookies[cookie] !== 'null') {
+					cookieObject[cookie] = zitiCookies[cookie];
 				}
 			}
-
-			headers.set('Cookie', cookieValue);	
 		}
 	}
-
+ 
+	// set the Cookie header
+	let cookieHeaderValue = '';
+	for (const cookie in cookieObject) {
+		if (cookieObject.hasOwnProperty(cookie)) {
+			cookieHeaderValue += cookie + '=' + cookieObject[cookie] + ';';
+		}
+	}
+	headers.set('Cookie', cookieHeaderValue);	
 
 	// HTTP-network-or-cache fetch steps 2.4-2.7
 	let contentLengthValue = null;

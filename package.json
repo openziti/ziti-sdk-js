@@ -113,6 +113,7 @@
     "lodash.isundefined": "^3.0.1",
     "lodash.minby": "^4.6.0",
     "lodash.result": "^4.5.2",
+    "lodash.split": "^4.4.2",
     "lodash.tonumber": "^4.0.3",
     "micromodal": "^0.4.6",
     "multistream": "^4.1.0",
