@@ -1,3 +1,12 @@
+# [0.10.0](https://github.com/openziti/ziti-sdk-js/compare/v0.9.2...v0.10.0) (2021-05-20)
+
+
+### Features
+
+* TSPlus support ([#73](https://github.com/openziti/ziti-sdk-js/issues/73)) ([df640b9](https://github.com/openziti/ziti-sdk-js/commit/df640b984d717b79aeed2340a69737c08d259a17))
+
+
+
 ## [0.9.2](https://github.com/openziti/ziti-sdk-js/compare/v0.9.1...v0.9.2) (2021-05-12)
 
 
