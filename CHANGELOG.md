@@ -1,3 +1,12 @@
+## [0.10.1](https://github.com/openziti/ziti-sdk-js/compare/v0.10.0...v0.10.1) (2021-05-20)
+
+
+### Bug Fixes
+
+* dep updates ([#74](https://github.com/openziti/ziti-sdk-js/issues/74)) ([50f86d3](https://github.com/openziti/ziti-sdk-js/commit/50f86d302039843d823b8cd87c3581fcd83df762))
+
+
+
 # [0.10.0](https://github.com/openziti/ziti-sdk-js/compare/v0.9.2...v0.10.0) (2021-05-20)
 
 
