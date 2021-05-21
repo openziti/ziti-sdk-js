@@ -77,7 +77,7 @@ function mixin(obj) {
 
 
 /**
- * Initialize the Ziti Context.
+ * Initialize the Ziti PKI.
  * 
  * Tasks:
  * - validate options
@@ -160,29 +160,29 @@ ZitiPKI.prototype.generateKeyPair = async function() {
 
     self.logger.info('Starting KeyPair Generation');
 
-    if (typeof window !== 'undefined') {
+    // if (typeof window !== 'undefined') {
 
-      identityModalCSS.inject();
-      keypairModalHTML.inject();
-      MicroModal.init({
-        onShow: modal => console.info(`${modal.id} is shown`), // [1]
-        onClose: modal => console.info(`${modal.id} is hidden`), // [2]
-        openTrigger: 'ziti-data-micromodal-trigger', // [3]
-        closeTrigger: 'data-custom-close', // [4]
-        openClass: 'is-open', // [5]
-        disableScroll: true, // [6]
-        disableFocus: false, // [7]
-        awaitOpenAnimation: false, // [8]
-        awaitCloseAnimation: true, // [9]
-        debugMode: false // [10]
-      });
+    //   identityModalCSS.inject();
+    //   keypairModalHTML.inject();
+    //   MicroModal.init({
+    //     onShow: modal => console.info(`${modal.id} is shown`), // [1]
+    //     onClose: modal => console.info(`${modal.id} is hidden`), // [2]
+    //     openTrigger: 'ziti-data-micromodal-trigger', // [3]
+    //     closeTrigger: 'data-custom-close', // [4]
+    //     openClass: 'is-open', // [5]
+    //     disableScroll: true, // [6]
+    //     disableFocus: false, // [7]
+    //     awaitOpenAnimation: false, // [8]
+    //     awaitCloseAnimation: true, // [9]
+    //     debugMode: false // [10]
+    //   });
     
-      MicroModal.show('ziti-keypair-modal');
+    //   MicroModal.show('ziti-keypair-modal');
 
-      modalMsg.setMessage('Please do not close this browser window.');
+    //   modalMsg.setMessage('Please do not close this browser window.');
 
-      modalMsg.setProgress('Zero-Trust KeyPair creation in progress.');
-    }
+    //   modalMsg.setProgress('Zero-Trust KeyPair creation in progress.');
+    // }
   
 
     var startTime, endTime;
@@ -203,7 +203,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
         var seconds = Math.round(timeDiff);
       
         if ((seconds % 2) == 0) {
-          self.logger.trace('Zero-Trust KeyPair creation in progress: elapsed[' + seconds + ' sec]');
+          self.logger.debug('Zero-Trust KeyPair creation in progress: elapsed[' + seconds + ' sec]');
           if (typeof window !== 'undefined') {
             modalMsg.setProgress('Zero-Trust KeyPair creation in progress: elapsed[' + seconds + ' sec]');
           }
@@ -233,13 +233,13 @@ ZitiPKI.prototype.generateKeyPair = async function() {
 
         self.logger.info('KeyPair Generation COMPLETE... elapsed[' + seconds + ' sec]');
 
-        if (typeof window !== 'undefined') {
-          modalMsg.setProgress('KeyPair Generation COMPLETE... elapsed[' + seconds + ' sec]');
+        // if (typeof window !== 'undefined') {
+        //   modalMsg.setProgress('KeyPair Generation COMPLETE... elapsed[' + seconds + ' sec]');
 
-          modalMsg.setMessage('You may now REFRESH this browser window to load the application.');
+        //   modalMsg.setMessage('You may now REFRESH this browser window to load the application.');
 
-          MicroModal.close('ziti-keypair-modal');
-        }
+        //   MicroModal.close('ziti-keypair-modal');
+        // }
 
         resolve( true );
       }
@@ -250,19 +250,59 @@ ZitiPKI.prototype.generateKeyPair = async function() {
 
 }
 
-var startTime, endTime;
 
-function start() {
-  startTime = performance.now();
-};
+/**
+ * Wait for keypair generation to complete before returning
+ * 
+ * @params  {nothing}   
+ * @returns {nothing}   
+ */
+ ZitiPKI.prototype.awaitKeyPairGenerationComplete = async function() {
 
-function end() {
-  endTime = performance.now();
-  var timeDiff = endTime - startTime; //in ms 
-  // strip the ms 
-  timeDiff /= 1000; 
-  
-  // get seconds 
-  var seconds = Math.round(timeDiff);
-  console.log(seconds + " seconds");
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let haveKeys = await self._haveKeypair();
+    if (haveKeys) {
+      self.logger.info('Pre-existing KeyPair found; skipping wait for keypair generation completion');
+      resolve( false );
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+
+      identityModalCSS.inject();
+      keypairModalHTML.inject();
+      MicroModal.init({
+        onShow: modal => console.info(`${modal.id} is shown`), // [1]
+        onClose: modal => console.info(`${modal.id} is hidden`), // [2]
+        openTrigger: 'ziti-data-micromodal-trigger', // [3]
+        closeTrigger: 'data-custom-close', // [4]
+        openClass: 'is-open', // [5]
+        disableScroll: true, // [6]
+        disableFocus: false, // [7]
+        awaitOpenAnimation: false, // [8]
+        awaitCloseAnimation: true, // [9]
+        debugMode: false // [10]
+      });
+    
+      MicroModal.show('ziti-keypair-modal');
+
+      modalMsg.setMessage('Please do not close this browser window.');
+
+      modalMsg.setProgress('Zero-Trust KeyPair creation in progress.');
+    }
+
+
+    (async function waitForKeyPairGenerationComplete() {
+      let haveKeys = await self._haveKeypair();
+      if (haveKeys) {
+        MicroModal.close('ziti-keypair-modal');
+        return resolve();
+      }
+      setTimeout(waitForKeyPairGenerationComplete, 200);
+    })();      
+    
+  });
 }

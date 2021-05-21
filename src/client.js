@@ -765,6 +765,22 @@ if (typeof window !== 'undefined') {
     window.fetch = zitiFetch;
     window.XMLHttpRequest = ZitiXMLHttpRequest;
     window.WebSocket = ZitiWebSocketWrapper;
+
+
+    window.addEventListener('beforeunload', function (e) {
+
+      if (!isUndefined(ziti._ctx)) {
+      }
+
+      purgeSensitiveValues();   // flush the IndexedDB
+      
+      // e.preventDefault(); // If you prevent default behavior in Mozilla Firefox prompt will always be shown
+      // e.returnValue = '';       // Chrome requires returnValue to be set
+
+      return undefined;
+
+    });    
+      
   }
 }
 
@@ -795,20 +811,42 @@ _onMessage_setControllerApi = async ( event ) => {
  * 
  */
 _onMessage_generateKeyPair = async ( event ) => {
+
   let pki = new ZitiPKI(ZitiPKI.prototype);
   await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  let neededToGenerateKeyPair = await pki.generateKeyPair();  // await keypair calculation complete
+  pki.generateKeyPair();  // initiate keypair calculation
 
-  if (neededToGenerateKeyPair) {
+  // if (neededToGenerateKeyPair) {
 
-    let updb = new ZitiUPDB(ZitiUPDB.prototype);
-    await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-    await updb.awaitLoginFormComplete();  // await user creds input
-    updb.closeLoginForm();
+  //   let updb = new ZitiUPDB(ZitiUPDB.prototype);
+  //   await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+  //   await updb.awaitLoginFormComplete();  // await user creds input
+  //   updb.closeLoginForm();
 
-    // Reload the page now that we have obtained the UPDB creds
-    setTimeout(function(){ window.location.reload() }, 1000);
-  }
+  //   // Reload the page now that we have obtained the UPDB creds
+  //   setTimeout(function(){ window.location.reload() }, 1000);
+  // }
+
+  _sendResponse( event, 'OK' );
+}
+
+
+/**
+ * 
+ */
+ _onMessage_promptForZitiCreds = async ( event ) => {
+
+  let updb = new ZitiUPDB(ZitiUPDB.prototype);
+  await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+  await updb.awaitLoginFormComplete();  // await user creds input
+  updb.closeLoginForm();
+
+  let pki = new ZitiPKI(ZitiPKI.prototype);
+  await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+  await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
+
+  // Reload the page now that we have obtained the UPDB creds
+  setTimeout(function(){ window.location.reload() }, 1000);
 
   _sendResponse( event, 'OK' );
 }
@@ -842,6 +880,10 @@ _onMessage_awaitIdentityLoaded = async ( event ) => {
     ctx.logger.success('JS SDK version %s init (_onMessage_awaitIdentityLoaded) completed', pjson.version);
     ziti._ctx = ctx;
   }
+
+  let pki = new ZitiPKI(ZitiPKI.prototype);
+  await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+  await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
 
   await ziti._ctx._awaitIdentityLoadComplete().catch((err) => {
     release();
@@ -878,10 +920,6 @@ _onMessage_nop = async ( event ) => {
   _sendResponse( event, 'nop OK' );
 }
 
-// var some_cookies = Cookies.get();
-// if (!isUndefined(some_cookies)) {
-//   ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, some_cookies, new Date(8640000000000000));
-// }
 
 if (!zitiConfig.serviceWorker.active) {
   if ('serviceWorker' in navigator) {
@@ -914,6 +952,7 @@ if (!zitiConfig.serviceWorker.active) {
             if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
         else if (event.data.command === 'generateKeyPair')      { _onMessage_generateKeyPair( event ); }
         else if (event.data.command === 'setControllerApi')     { _onMessage_setControllerApi( event ); }
+        else if (event.data.command === 'promptForZitiCreds')   { _onMessage_promptForZitiCreds( event ); }
         else if (event.data.command === 'awaitIdentityLoaded')  { _onMessage_awaitIdentityLoaded( event ); }
         else if (event.data.command === 'purgeCert')            { _onMessage_purgeCert( event ); }
         
@@ -954,4 +993,24 @@ async function sendMessageToServiceworker( message ) {
 
       navigator.serviceWorker.controller.postMessage(message, [ messageChannel.port2 ]);
   });
+}
+
+
+/**
+ * 
+ */
+async function purgeSensitiveValues() {
+
+  await ls.removeItem( zitiConstants.get().ZITI_CONTROLLER );               // The location of the Controller REST endpoint
+  await ls.removeItem( zitiConstants.get().ZITI_CONTROLLER_WS );            // The location of the Controller WS endpoint (as returned from /protocols)
+  await ls.removeItem( zitiConstants.get().ZITI_SERVICES );                 // 
+  await ls.removeItem( zitiConstants.get().ZITI_API_SESSION_TOKEN );        // 
+  await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );         // 
+  await ls.removeItem( zitiConstants.get().ZITI_COOKIES );                  // 
+  await ls.removeItem( zitiConstants.get().ZITI_CLIENT_CERT_PEM );          // 
+  await ls.removeItem( zitiConstants.get().ZITI_CLIENT_PRIVATE_KEY_PEM );   // 
+  await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT );            // 
+  await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_USERNAME );        // 
+  await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_PASSWORD );        // 
+   
 }

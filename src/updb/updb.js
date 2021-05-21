@@ -171,8 +171,8 @@ ZitiUPDB.prototype.promptForCreds = async function() {
     identityModalLogin.injectButtonHandler( async function( results ) { 
       self._loginFormValues = results;
       self.logger.debug('Login Form cb(): results [%o]', results);
-      await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_USERNAME, self._loginFormValues.username, new Date(8640000000000000));
-      await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PASSWORD, self._loginFormValues.password, new Date(8640000000000000));
+      // await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_USERNAME, self._loginFormValues.username, new Date(8640000000000000));
+      // await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PASSWORD, self._loginFormValues.password, new Date(8640000000000000));
     });
   
     MicroModal.init({
@@ -224,8 +224,8 @@ ZitiUPDB.prototype.awaitLoginFormComplete = async function() {
       if (self._loginFormValues) {
         return resolve(self._loginFormValues);
       }
-      self.logger.debug('ZitiUPDB.awaitLoginFormComplete() _loginFormValues still not present');
-      setTimeout(waitForLoginFormComplete, 500);
+      self.logger.trace('ZitiUPDB.awaitLoginFormComplete() _loginFormValues still not present');
+      setTimeout(waitForLoginFormComplete, 250);
     })();
 
   });
