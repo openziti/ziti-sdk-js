@@ -40,10 +40,10 @@ exports.inject = () => {
                         </h2>
                     </header>
                     <div style="text-align: center; padding-top: 15px;">
-                        <span id="ziti-keypair-error" style="color: #e80853; font-weight: 800; font-size: 0.8em;"></span> 
+                        <span id="ziti-keypair-error" style="color: #e80853; font-weight: 800; font-size: 0.9em;"></span> 
                     </div>    
                     <div style="text-align: center; padding-top: 15px;">
-                        <span id="ziti-keypair-progress" style="color: #145fe9; font-weight: 800; font-size: 0.6em;"></span> 
+                        <span id="ziti-keypair-progress" style="color: #145fe9; font-weight: 800; font-size: 0.9em;"></span> 
                     </div>
                 </form>
             </div>
