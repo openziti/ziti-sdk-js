@@ -242,62 +242,34 @@ ZitiEnroller.prototype._awaitHaveAPISession = async function() {
 ZitiEnroller.prototype.enroll = async function() {
 
   let self = this;
-  let keyPairPromise;
 
-  self.logger.debug('enroll() starting');
+  return new Promise( async (resolve, reject) => {
 
-  let publicKey = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY);
-  let privateKey = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+    self.logger.debug('enroll() starting');
 
-  // If there is no keypair currently in the browZer, then start creating it in the background
-  if ( isUndefined( publicKey ) || isUndefined( privateKey ) || isNull( publicKey ) || isNull( privateKey )) {
-    self.logger.debug('No keypair present, initiating generation now');
-    keyPairPromise = this.generateKeyPair();  // initiate the (async) keypair calculation
-  }
+    let publicKey = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY);
+    let privateKey = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
 
-  // Don't proceed until we have successfully logged in to Controller and have established an API session
-  await this._awaitHaveAPISession().catch((err) => {
-    self.logger.error(err);
-    reject(err);
+    // If there is no keypair currently in the browZer, then something is wrong
+    if (
+      isNull( publicKey ) || isUndefined( publicKey ) ||
+      isNull( privateKey )  || isUndefined( privateKey )
+    ) {
+      return reject('no keypair found!');
+    }
+
+    // Don't proceed until we have successfully logged in to Controller and have established an API session
+    await ziti._ctx.ensureAPISession();
+    
+    this._publicKey  = forge.pki.publicKeyFromPem( publicKey );
+    this._privateKey = forge.pki.privateKeyFromPem( privateKey);
+
+    this.generateCSR();
+
+    await this.createEphemeralCert();
+
+    resolve();
   });
-  
-  // Obtain, then parse, the Controller's "well known certs"
-  // await this.getWellKnownCerts();
-  // this.parsePKCS7();
-
-  // If we are cooking a keypair
-  if (!isUndefined( keyPairPromise )) {
-
-    let keys = await keyPairPromise; // Don't proceed until keypair calculation has completed
-
-    // this._privateKey = keys.privateKey;
-    // this._publicKey = keys.publicKey;
-
-    // let privatePEM = forge.pki.privateKeyToPem(this._privateKey);
-    // privatePEM = privatePEM.replace(/\\n/g, '\n');
-    // privatePEM = privatePEM.replace('\r', '');
-    // ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
-
-    // let publicPEM = forge.pki.publicKeyToPem(this._publicKey);
-    // publicPEM = publicPEM.replaceAll(/\\n/g, '\n');
-    // publicPEM = publicPEM.replaceAll('\r', '');
-    // ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY, publicPEM, new Date(8640000000000000));
-
-  } else {
-
-    this._privateKey = forge.pki.privateKeyFromPem( await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY) );
-    this._publicKey  = forge.pki.publicKeyFromPem(  await ls.get(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY) );
-
-  }
-
-  this.generateCSR();
-
-  await this.createEphemeralCert();
-
-  // setTimeout(this._dismissModal, 5000);
-  // MicroModal.close('ziti-updb-modal');
-  // this._modalIsOpen = false;
-
 }
 
 // ZitiEnroller.prototype._dismissModal = function() {
@@ -373,8 +345,6 @@ ZitiEnroller.prototype.getAPISession = async function( who ) {
  */
 ZitiEnroller.prototype.createEphemeralCert = async function() {
 
-  // error.setProgress('Obtaining Ephemeral Cert');
-
   let self = this;
 
   return new Promise( async (resolve, reject) => {
@@ -384,12 +354,14 @@ ZitiEnroller.prototype.createEphemeralCert = async function() {
         csr:  this._csr
       }
     });
+
     if (!isUndefined(res.error)) {
       this.logger.error(res.error.message);
       // error.setMessage('ERROR: Ephemeral Cert creation failed - ' + res.error.message);
       reject(res.error.message);
       return;
     }
+
     if (isUndefined(res.data.certificate)) {
       this.logger.error('cert not returned in response from detailCurrentApiSessionCertificate');
       // error.setMessage('ERROR: Ephemeral Cert creation failed');
@@ -410,24 +382,11 @@ ZitiEnroller.prototype.createEphemeralCert = async function() {
     }
 
     let expiryTime = pkiUtil.getExpiryTimeFromCertificate(certificate);
+    let expiryDate = new Date(expiryTime);
 
-    self.logger.trace('controllerClient.createCurrentApiSessionCertificate returned cert: [%o] with expiryTime: [%o]', certPEM, expiryTime);
+    self.logger.debug('controllerClient.createCurrentApiSessionCertificate returned cert with expiryTime: [%o] expiryDate:[%o]', expiryTime, expiryDate);
 
     await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);
-
-    // error.setProgress('Ephemeral Cert creation SUCCEEDED - This dialog will auto-dismiss in a few seconds');
-
-
-    // Get Controller protocols info
-    // res = await self.ctx._controllerClient.listProtocols();
-    // self.logger.trace('controllerClient.listProtocols returned: [%o]', res);
-    // if (isUndefined(res.data.ws)) {
-    //   reject('controllerClient.listProtocols data contains no "ws" section');
-    // }
-    // if (isUndefined(res.data.ws.address)) {
-    //   reject('controllerClient.listProtocols "ws" section contains no "address');
-    // }
-    // await ls.setWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS, 'ws://' + res.data.ws.address , expiryTime);
     
     resolve()
 
@@ -833,6 +792,7 @@ ZitiEnroller.prototype.generateCSR = function(binaryData, label) {
 
   this._csr = forge.pki.certificationRequestToPem(csr);
   
+  this.logger.debug('generateCSR results [%o]', this._csr);
 }
 
 

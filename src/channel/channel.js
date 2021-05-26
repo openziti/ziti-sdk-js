@@ -801,7 +801,9 @@ module.exports = class ZitiChannel {
    */
   async _recvSend(data) {
     if (!isUndefined(this._zws)) {
-      this._ctx.logger.debug('_recvSend -> sentLen[%o] bufferedLen[%o]', data.byteLength, this._zws._ws.bufferedAmount);
+      if (!isNull(this._zws._ws)) {
+        this._ctx.logger.debug('_recvSend -> sentLen[%o] bufferedLen[%o]', data.byteLength, this._zws._ws.bufferedAmount);
+      }
     }
   }
   

@@ -209,7 +209,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
           }
         }
 
-        setTimeout(step, 1);
+        setTimeout(step, 50);
       
       } else {  // Now that we have a keypair
 

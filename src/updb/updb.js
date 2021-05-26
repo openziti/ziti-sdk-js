@@ -151,12 +151,6 @@ ZitiUPDB.prototype.promptForCreds = async function() {
 
   let self = this;
 
-  let haveKeys = await self._haveCreds();
-  if (haveKeys) {
-    self.logger.info('Pre-existing creds found; skipping prompt');
-    return;
-  }
-
   self.logger.info('Starting Creds Prompt');
 
   if (typeof window !== 'undefined') {
@@ -171,8 +165,12 @@ ZitiUPDB.prototype.promptForCreds = async function() {
     identityModalLogin.injectButtonHandler( async function( results ) { 
       self._loginFormValues = results;
       self.logger.debug('Login Form cb(): results [%o]', results);
-      // await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_USERNAME, self._loginFormValues.username, new Date(8640000000000000));
-      // await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PASSWORD, self._loginFormValues.password, new Date(8640000000000000));
+
+      // Save the username/password, but ensure it vanishes in 5 minutes
+      let expiry = new Date();
+      expiry.setMinutes(expiry.getMinutes()+5);
+      await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_USERNAME, self._loginFormValues.username, expiry );
+      await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PASSWORD, self._loginFormValues.password, expiry );
     });
   
     MicroModal.init({
@@ -196,6 +194,22 @@ ZitiUPDB.prototype.promptForCreds = async function() {
 
 
 /**
+ * Prompt the user for their creds
+ * 
+ * @params  {nothing}   
+ * @returns {nothing}   
+ */
+ZitiUPDB.prototype.closeLoginForm = function() {
+
+  if (this.modalShown) {
+    MicroModal.close('ziti-updb-modal');
+    this.modalShown = false;
+  }
+
+}
+
+
+/**
  * Return a Promise that will resolve as soon as we have acquired login creds from the UI.
  *
  * @returns {Promise}   
@@ -208,17 +222,9 @@ ZitiUPDB.prototype.awaitLoginFormComplete = async function() {
 
   return new Promise( async (resolve, reject) => {
 
-    let haveKeys = await self._haveCreds();
-    if (haveKeys) {
-      self.logger.info('Pre-existing KeyPair found; skipping login form');
-      return resolve(self._loginFormValues);
-    }  
+    self._loginFormValues = undefined;
   
-    this.promptForCreds();
-
-    //TEMP
-    // self._loginFormValues = { username: 'admin', password: 'admin' };    
-    //TEMP
+    self.promptForCreds();
 
     (function waitForLoginFormComplete() {
       if (self._loginFormValues) {
@@ -233,13 +239,37 @@ ZitiUPDB.prototype.awaitLoginFormComplete = async function() {
 
 
 /**
- * Return a Promise that will resolve as soon as we have acquired login creds from the UI.
+ * Return a Promise that will resolve as soon as we have acquired login creds from the UI
+ * that are acceptable to the Ziti Controller.
  *
  * @returns {Promise}   
  */
-ZitiUPDB.prototype.closeLoginForm = async function() {
-  if (this.modalShown) {
-    MicroModal.close('ziti-updb-modal');
-    this.modalShown = false;
-  }
+ ZitiUPDB.prototype.awaitCredentialsAndAPISession = async function() {
+
+  this.logger.debug('ZitiUPDB.awaitCredentialsAndAPISession() starting');
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    // Remain in this loop until the creds entered on login form are acceptable to the Ziti Controller
+    do {
+      let loginFormValues = await self.awaitLoginFormComplete();  // await user creds input
+
+      self.ctx.setLoginFormValues( loginFormValues );
+
+      validCreds = await self.ctx.getFreshAPISession();
+
+      if (!validCreds) {
+        error.setMessage('ERROR: Invalid credentials');
+      }
+    } while ( !validCreds );
+
+    this.logger.debug('ZitiUPDB.awaitCredentialsAndAPISession() now have valid creds, closing login form');
+
+    self.closeLoginForm();
+
+    resolve();
+
+  });
 }

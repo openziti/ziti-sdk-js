@@ -17,6 +17,7 @@ limitations under the License.
 
 const isUndefined     = require('lodash.isundefined');
 const isEqual         = require('lodash.isequal');
+const isNull          = require('lodash.isnull');
 const formatMessage   = require('format-message');
 const { PassThrough } = require('readable-stream')
 const Mutex           = require('async-mutex');
@@ -41,7 +42,7 @@ const ZitiPKI             = require('./pki/pki');
 const ZitiUPDB            = require('./updb/updb');
 const ls                  = require('./utils/localstorage');
 const zitiConstants       = require('./constants');
-const isNull              = require('lodash.isnull');
+const error               = require('./updb/error');
 
 formatMessage.setup({
   // locale: 'en', // what locale strings should be displayed
@@ -816,17 +817,6 @@ _onMessage_generateKeyPair = async ( event ) => {
   await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
   pki.generateKeyPair();  // initiate keypair calculation
 
-  // if (neededToGenerateKeyPair) {
-
-  //   let updb = new ZitiUPDB(ZitiUPDB.prototype);
-  //   await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  //   await updb.awaitLoginFormComplete();  // await user creds input
-  //   updb.closeLoginForm();
-
-  //   // Reload the page now that we have obtained the UPDB creds
-  //   setTimeout(function(){ window.location.reload() }, 1000);
-  // }
-
   _sendResponse( event, 'OK' );
 }
 
@@ -836,17 +826,29 @@ _onMessage_generateKeyPair = async ( event ) => {
  */
  _onMessage_promptForZitiCreds = async ( event ) => {
 
-  let updb = new ZitiUPDB(ZitiUPDB.prototype);
-  await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  await updb.awaitLoginFormComplete();  // await user creds input
-  updb.closeLoginForm();
+  let username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
+  let password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
 
-  let pki = new ZitiPKI(ZitiPKI.prototype);
-  await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
+  if (
+    isNull( username ) || isUndefined( username ) ||
+    isNull( password ) || isUndefined( password )
+  ) {
 
-  // Reload the page now that we have obtained the UPDB creds
-  setTimeout(function(){ window.location.reload() }, 1000);
+    let updb = new ZitiUPDB(ZitiUPDB.prototype);
+  
+    await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+  
+    await updb.awaitCredentialsAndAPISession();
+  
+    // Do not proceed until we have a keypair (this will render a dialog to the user informing them of status)
+    let pki = new ZitiPKI(ZitiPKI.prototype);
+    await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+    await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
+  
+    // Trigger a page reload now that we have creds and keypair
+    // setTimeout(function(){ window.location.reload() }, 1000);
+    setTimeout(function(){ window.location.href = window.location.href }, 1000);  
+  }
 
   _sendResponse( event, 'OK' );
 }
@@ -877,13 +879,30 @@ _onMessage_awaitIdentityLoaded = async ( event ) => {
   if (isUndefined(ziti._ctx)) {
     let ctx = new ZitiContext(ZitiContext.prototype);
     await ctx.initFromServiceWorker({ logLevel: LogLevel[event.data.options.logLevel] } );
-    ctx.logger.success('JS SDK version %s init (_onMessage_awaitIdentityLoaded) completed', pjson.version);
+    ctx.logger.success('JS SDK version %s initFromServiceWorker (_onMessage_awaitIdentityLoaded) completed', pjson.version);
     ziti._ctx = ctx;
   }
 
   let pki = new ZitiPKI(ZitiPKI.prototype);
   await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
-  await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
+  await pki.awaitKeyPairGenerationComplete(); // ensure keypair calculation has completed
+
+  if ( isNull( ziti._ctx._loginFormValues.username ) || isUndefined( ziti._ctx._loginFormValues.username ) || isNull( ziti._ctx._loginFormValues.password ) || isUndefined( ziti._ctx._loginFormValues.password ) ) {
+
+    let username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
+    let password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
+
+    if ( isNull( username ) || isUndefined( username ) || isNull( password ) || isUndefined( password ) ) {
+
+      let updb = new ZitiUPDB(ZitiUPDB.prototype);
+      await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );    
+      await updb.awaitCredentialsAndAPISession();
+  
+    }
+  }
+
+
+  await ziti._ctx.ensureAPISession();
 
   await ziti._ctx._awaitIdentityLoadComplete().catch((err) => {
     release();
@@ -949,7 +968,7 @@ if (!zitiConfig.serviceWorker.active) {
     navigator.serviceWorker.addEventListener('message', event => {
         console.log('----- Client received msg from serviceWorker: ', event.data.command);
 
-            if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
+             if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
         else if (event.data.command === 'generateKeyPair')      { _onMessage_generateKeyPair( event ); }
         else if (event.data.command === 'setControllerApi')     { _onMessage_setControllerApi( event ); }
         else if (event.data.command === 'promptForZitiCreds')   { _onMessage_promptForZitiCreds( event ); }
@@ -1002,7 +1021,6 @@ async function sendMessageToServiceworker( message ) {
 async function purgeSensitiveValues() {
 
   await ls.removeItem( zitiConstants.get().ZITI_CONTROLLER );               // The location of the Controller REST endpoint
-  await ls.removeItem( zitiConstants.get().ZITI_CONTROLLER_WS );            // The location of the Controller WS endpoint (as returned from /protocols)
   await ls.removeItem( zitiConstants.get().ZITI_SERVICES );                 // 
   await ls.removeItem( zitiConstants.get().ZITI_API_SESSION_TOKEN );        // 
   await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );         // 
@@ -1010,7 +1028,23 @@ async function purgeSensitiveValues() {
   await ls.removeItem( zitiConstants.get().ZITI_CLIENT_CERT_PEM );          // 
   await ls.removeItem( zitiConstants.get().ZITI_CLIENT_PRIVATE_KEY_PEM );   // 
   await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT );            // 
-  await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_USERNAME );        // 
-  await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_PASSWORD );        // 
    
 }
+
+
+(async function purgeExpiredValues() { 
+ 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_CONTROLLER );               // The location of the Controller REST endpoint
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_SERVICES );                 // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_API_SESSION_TOKEN );        // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_NETWORK_SESSIONS );         // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_COOKIES );                  // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_CLIENT_CERT_PEM );          // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_CLIENT_PRIVATE_KEY_PEM );   // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_CERT );            // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );        // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );        // 
+  // await ls.getWithExpiry( zitiConstants.get().ZITI_COOKIES );                  // 
+
+  setTimeout(purgeExpiredValues, (1000 * 5) );  // pulse this function every few seconds
+})()        

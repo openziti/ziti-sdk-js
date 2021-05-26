@@ -44,7 +44,7 @@ const defaultOptions        = require('./options');
 const zitiConstants         = require('../constants');
 const ZitiReporter          = require('../utils/ziti-reporter');
 const ZitiControllerClient  = require('../context/controller-client');
-const ZitiControllerWSClient  = require('./controller-ws-client');
+const ZitiUPDB              = require('../updb/updb');
 const ZitiChannel           = require('../channel/channel');
 const {throwIf}             = require('../utils/throwif');
 
@@ -52,6 +52,8 @@ let ZitiEnroller
 if (!zitiConfig.serviceWorker.active) {
   ZitiEnroller              = require('../enroll/enroller');
 }
+const pjson                 = require('../../package.json');
+const { selectordinal } = require('format-message');
 
 
 /**
@@ -116,12 +118,8 @@ ZitiContext.prototype.loadAPISessionToken = async function(self) {
 
 ZitiContext.prototype.haveRequiredVariables = function(self) {
   if (
-    // isNull( self._ztAPI ) ||
-    // isNull( self._ztWSAPI ) || isUndefined( self._ztWSAPI ) ||
     isNull( self._IDENTITY_CERT ) || isUndefined( self._IDENTITY_CERT ) ||
     isNull( self._IDENTITY_KEY )  || isUndefined( self._IDENTITY_KEY )
-    // ||
-    // isNull( self._IDENTITY_CA ) 
   ) {
     return false;
   } else {
@@ -140,37 +138,29 @@ ZitiContext.prototype.loadIdentity = async function(self) {
     self.logger.debug('loadIdentity() starting');
 
     // Load Identity variables from storage
-    // self._ztWSAPI       = await ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
     self._IDENTITY_CERT = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
     self._IDENTITY_KEY  = await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
-    // self._IDENTITY_CA   = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
-
-    await self.loadAPISessionToken(self);
-
-    // let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
-    // if (!isNull(apisess)) {
-    //   self._apiSession = apisess;
-
-    //   // Set the token header on behalf of all subsequent Controller API calls
-    //   self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
-    // }
 
     // If Identity absent/expired...
     if (! self.haveRequiredVariables(self) ) {
       // ...then we need to enroll
+
       let enroller = new ZitiEnroller(ZitiEnroller.prototype);
       enroller.init({ctx: self, logger: self.logger});
+
       await enroller.enroll().catch((e) => {
+
         self.logger.error('Enrollment failed: [%o]', e);
         localStorage.removeItem(zitiConstants.get().ZITI_JWT);
         return reject('Enrollment failed');
+
       });
 
+      self.logger.debug('enroll() completed successfully');
+
       // Now that enrollment completed successfully, reload Identity
-      // self._ztWSAPI       = await ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER_WS);
       self._IDENTITY_CERT = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
       self._IDENTITY_KEY  = await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
-      // self._IDENTITY_CA   = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA);
     }
 
     resolve();
@@ -196,17 +186,16 @@ ZitiContext.prototype._awaitIdentityLoadComplete = async function() {
       return reject(e);
     });
   
+    self.logger.debug('loadIdentity() returned');
+
     let startTime = new Date();
     (function waitForIdentityLoadComplete() {
       if (self.haveRequiredVariables(self)) {
-        // self._ztAPI = await ls.getWithExpiry(zitiConstants.get().ZITI_CONTROLLER);
-        // if (self._ztAPI) {
-          if (self._modalIsOpen) {
-            MicroModal.close('ziti-updb-modal');
-            self._modalIsOpen = false;
-          }
-          return resolve(self._ztAPI);
-        // }
+        if (self._modalIsOpen) {
+          MicroModal.close('ziti-updb-modal');
+          self._modalIsOpen = false;
+        }
+        return resolve();
       }
       self.logger.debug('awaitIdentityLoadComplete() identity still not loaded');
       let now = new Date();
@@ -251,7 +240,122 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 }
 
 
+/**
+ * 
+ *
+ */
+ ZitiContext.prototype.getFreshAPISession = async function() {
 
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    self.logger.debug('ctx.getFreshAPISession() entered');
+
+    // Get an API session with Controller
+    let res = await self._controllerClient.authenticate({
+
+      method: 'password',
+
+      body: { 
+
+        username: self._loginFormValues.username,
+        password: self._loginFormValues.password,
+
+        configTypes: [
+          'ziti-tunneler-client.v1'
+        ],
+
+        // envInfo: {
+          // arch: window.navigator.platform,    // e.g. 'MacIntel'
+          // os: window.navigator.appVersion,    // e.g. '5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+        // },
+        sdkInfo: {
+          // branch: "string",
+          // revision: "string",
+          type: 'ziti-sdk-js',
+          version: pjson.version
+        },
+      }
+    });
+
+    if (!isUndefined(res.error)) {
+      self.logger.error(res.error.message);
+      resolve( false );
+      return;
+    }
+
+    self._apiSession = res.data;
+    self.logger.debug('ctx.getFreshAPISession(): _apiSession[%o]', self._apiSession);
+
+    // Set the token header on behalf of all subsequent Controller API calls
+    self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+
+    await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self._apiSession, new Date( Date.parse( self._apiSession.expiresAt )));
+
+    resolve( true );
+  });
+}
+
+
+/**
+ * 
+ *
+ */
+ ZitiContext.prototype.ensureAPISession = async function() {
+
+  let self = this;
+
+  self.logger.debug('ctx.ensureAPISession: entered: self._apiSession[%o]', self._apiSession);
+
+  return new Promise( async (resolve, reject) => {
+
+    if (isUndefined( self._apiSession )) {
+
+      self.logger.debug('ctx.ensureAPISession: calling getFreshAPISession()');
+
+      let validCreds = await self.getFreshAPISession();
+      if (!validCreds) {
+
+        self.logger.debug('ctx.ensureAPISession: getFreshAPISession() failed');
+
+        let updb = new ZitiUPDB(ZitiUPDB.prototype);  
+        await updb.init( { ctx: self, logger: self.logger } );
+        updb.awaitCredentialsAndAPISession();
+
+      }
+            
+    }
+    else {
+
+      let now = Date.now();
+      let expiresAt = Date.parse( self._apiSession.expiresAt );
+      const diffTime = (expiresAt - now);
+      const diffMins = (diffTime / (1000 * 60));
+
+      self.logger.debug('ctx.ensureAPISession: mins before apiSession expiration [%o]', diffMins);
+
+      if (diffMins < 5.0) { // if expired, or about to expire
+
+        self.logger.debug('ctx.ensureAPISession: calling getFreshAPISession()');
+
+        let validCreds = await self.getFreshAPISession();
+        if (!validCreds) {
+
+          self.logger.debug('ctx.ensureAPISession: getFreshAPISession() failed');
+
+          let updb = new ZitiUPDB(ZitiUPDB.prototype);  
+          await updb.init( { ctx: self, logger: self.logger } );
+          updb.awaitCredentialsAndAPISession();
+
+        }
+      }
+    }
+
+    return resolve( true );
+  });
+}
+ 
 
 /**
  * Initialize the Ziti Context.
@@ -298,23 +402,11 @@ ZitiContext.prototype.init = async function(options) {
       logger: self.logger
     });
 
-    // // Get Controller version info
-    // let res = await self._controllerClient.listVersion();
-    // self._controllerVersion = res.data;
-    // self.logger.info('Controller Version: [%o]', self._controllerVersion);
+    // Get Controller version info
+    let res = await self._controllerClient.listVersion();
+    self._controllerVersion = res.data;
+    self.logger.info('init Controller Version: [%o]', self._controllerVersion);
 
-    //
-    if (typeof window === 'undefined') {
-      // We're on service worker side
-      await self._awaitIdentityLoadCompleteFromServiceWorker().catch((err) => {
-        return;
-      });  
-    } else {
-      // We're on (normal) browser side
-      await self._awaitIdentityLoadComplete().catch((err) => {
-        return;
-      });  
-    }
 
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
@@ -327,46 +419,11 @@ ZitiContext.prototype.init = async function(options) {
     self._mutex = new Mutex.Mutex();
     self._connectMutex = new Mutex.Mutex();
 
-    let services = await ls.getWithExpiry(zitiConstants.get().ZITI_SERVICES);
-    if (!isNull(services)) {
-      self._services = services;
-    }
-
-    /*
-    *  Start WS client stuff...
-    */
-
-    // this._controllerWSClient = new ZitiControllerWSClient({
-    //   ctx: this,
-    //   domain: this._ztWSAPI,
-    //   logger: this.logger
-    // });
-
-    // await this._controllerWSClient.connect();
-    
-    // // Get an API session with Controller
-    // res = await this._controllerClient.authenticate({
-    //   method: 'cert',
-    //   body: { 
-    //     configTypes: [
-    //       'ziti-tunneler-client.v1'
-    //     ]
-    //   }
-    // });
-    // res = JSON.parse(Buffer.from(res).toString());
-    // if (!isUndefined(res.error)) {
-    //   this.logger.error(res.error.message);
-    //   if (res.error.code == 'INVALID_AUTH') { // if the Identity we have has expired or been revoked
-    //     localStorage.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT ); // then purge it
-    //   }
-    //   reject(res.error.message);
-    //   return;
-    // }
-    // this._apiSession = res.data;
-    // this.logger.debug('Controller API Session established: [%o]', this._apiSession);
-
-    // // Set the token header on behalf of all subsequent Controller API calls
-    // this._controllerClient.setApiKey(this._apiSession.token, 'zt-session', false);
+    self._loginFormValues = {};
+    self._loginFormValues.username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
+    self.logger.info('ZITI_IDENTITY_USERNAME: [%o]', self._loginFormValues.username);
+    self._loginFormValues.password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
+    self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
 
     resolve();
   });
@@ -413,10 +470,10 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
       logger: self.logger
     });
 
-    // // Get Controller version info
-    // let res = await self._controllerClient.listVersion();
-    // self._controllerVersion = res.data;
-    // self.logger.info('Controller Version: [%o]', self._controllerVersion);
+    // Get Controller version info
+    let res = await self._controllerClient.listVersion();
+    self._controllerVersion = res.data;
+    self.logger.info('initFromServiceWorker Controller Version: [%o]', self._controllerVersion);
 
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
@@ -425,6 +482,12 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
     self._channels = new Map();
     self._channelSeq = 0;
     self._connSeq = 0;
+
+    self._loginFormValues = {};
+    self._loginFormValues.username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
+    self.logger.info('ZITI_IDENTITY_USERNAME: [%o]', self._loginFormValues.username);
+    self._loginFormValues.password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
+    self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
 
     self._mutex = new Mutex.Mutex();
     self._connectMutex = new Mutex.Mutex();
@@ -441,17 +504,28 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
 }
 
 
+ZitiContext.prototype.setLoginFormValues = async function( loginFormValues ) {
+  this._loginFormValues = loginFormValues;
+}
+
+ZitiContext.prototype.getLoginFormValues = async function() {
+  return this._loginFormValues;
+}
+
+
+ZitiContext.prototype.ensure = async function() {
+  return this._loginFormValues;
+}
+
+
+
 ZitiContext.prototype.fetchServices = async function() {
   
   let self = this;
 
   return new Promise( async (resolve, reject) => {
 
-    // 
-    let apiSessionToken = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
-    if (!isNull(apiSessionToken)) {
-      self._controllerClient.setApiKey(apiSessionToken.token, 'zt-session', false);
-    }
+    await self.ensureAPISession();
 
     // Get list of active Services from Controller
     res = await self._controllerClient.listServices({ 
@@ -873,12 +947,6 @@ ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
     let network_session;
 
     const release = await self._mutex.acquire();
-
-    // let network_sessions = await ls.getWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS);
-    // debugger
-
-    // if (!isNull(network_sessions) {
-    // }
 
     // if we do NOT have a NetworkSession for this serviceId, create it
     if (!self._network_sessions.has(serviceID)) {
