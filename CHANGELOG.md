@@ -1,3 +1,12 @@
+# [0.11.0](https://github.com/openziti/ziti-sdk-js/compare/v0.10.1...v0.11.0) (2021-05-26)
+
+
+### Features
+
+* Gen keypair in background ([#81](https://github.com/openziti/ziti-sdk-js/issues/81)) ([ef25b1e](https://github.com/openziti/ziti-sdk-js/commit/ef25b1ea6ae8c34188006a316b12e8a9a0df119b))
+
+
+
 ## [0.10.1](https://github.com/openziti/ziti-sdk-js/compare/v0.10.0...v0.10.1) (2021-05-20)
 
 
