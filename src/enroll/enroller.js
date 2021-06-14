@@ -370,12 +370,16 @@ ZitiEnroller.prototype.createEphemeralCert = async function() {
     }
 
     let certPEM = res.data.certificate;
+    certPEM = certPEM.replace(/\\n/g, '\n');
+    certPEM = certPEM.replace(/[\r]+/g, '');
+    certPEM = certPEM.replace(/\n/g, '\x0a');
 
     let flatcert = certPEM.replace(/\\n/g, '\n');
 
     let certificate;
     try {
       certificate = pkiUtil.convertPemToCertificate( flatcert );
+      pkiUtil.printCertificate( certificate );
     } catch (err) {
       self.logger.error('controllerClient.createCurrentApiSessionCertificate returned cert [%o] which pkiUtil.convertPemToCertificate cannot process', certPEM);
       reject('controllerClient.createCurrentApiSessionCertificate returned cert which pkiUtil.convertPemToCertificate cannot process');
@@ -769,10 +773,10 @@ ZitiEnroller.prototype.generateCSR = function(binaryData, label) {
       name: 'commonName',
       // value: this._decoded_jwt.sub
       value: 'OTF'
-    }, {
-      name: 'description',
-      // value: this._decoded_jwt.iss
-      value: 'OTF CSR'
+    // }, {
+    //   name: 'description',
+    //   // value: this._decoded_jwt.iss
+    //   value: 'OTF CSR'
     }, {
       name: 'countryName',
       value: 'US'

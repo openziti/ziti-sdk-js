@@ -26,13 +26,12 @@ const utils           = require('../utils/utils');
 const zitiConstants   = require('../constants');
 const forge           = require('node-forge');
 const ab2str          = require('arraybuffer-to-string');
+const isUndefined     = require('lodash.isundefined');
+const isNull          = require('lodash.isnull');
+const { v4: uuidv4 }  = require('uuid');
+
 forge.options.usePureJavaScript = true;
 
-
-async function pullKeyPair(self) {
-  self._clientCertPEM       = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-  self._clientPrivateKeyPEM = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
-}
 
 /**
  * @typicalname connection
@@ -58,17 +57,41 @@ module.exports = class ZitiTLSConnection {
 
     this._connected = false;
 
+    this._uuid = uuidv4();
 
-    // Pull CA
-    // this._caStore = forge.pki.createCaStore([ ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CA) ]);
-    
-    // Pull keypair
-    pullKeyPair(this);
-    // this._clientCertPEM       = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-    // this._clientPrivateKeyPEM = ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+  }
+ 
 
-    let self = this;      
+  /**
+   * Populate this TLS Connection object with the keypair from local storage
+   */
+  async pullKeyPair() {
 
+    const self = this;
+
+    return new Promise( async (resolve, reject) => {
+
+      this._clientCertPEM       = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+      this._clientPrivateKeyPEM = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+
+      if (
+        isUndefined(this._clientCertPEM) ||
+        isUndefined(this._clientPrivateKeyPEM) ||
+        isNull(this._clientCertPEM) ||
+        isNull(this._clientPrivateKeyPEM)
+      ) {
+        return reject( new Error('keypair nor present in local storage') );
+      }
+
+      return resolve();
+
+    });
+
+  }  
+ 
+
+  getUUID() {
+    return this._uuid;
   }
 
 
@@ -89,8 +112,10 @@ module.exports = class ZitiTLSConnection {
 
       // These are the cipher suites we support (in order of preference)
       cipherSuites: [
-        forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA,
-        forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA
+        forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA256,
+        // forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA256,
+        // forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA,
+        // forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA
       ],
 
       // virtualHost: 'curt-edge-wss-router:3023',
@@ -127,11 +152,13 @@ module.exports = class ZitiTLSConnection {
 
       // client-side cert
       getCertificate: function(connection, hint) {
+        self._ctx.logger.debug('getCertificate(): for: %o, [%o]', self._uuid, self._clientCertPEM );
         return self._clientCertPEM;
       },
 
       // client-side private key
       getPrivateKey: function(connection, cert) {
+        self._ctx.logger.debug('getPrivateKey(): for: %o, [%o]', self._uuid, self._clientPrivateKeyPEM );
         return self._clientPrivateKeyPEM;
       },
 
@@ -167,7 +194,9 @@ module.exports = class ZitiTLSConnection {
       },
 
       error: function(connection, error) {
+        debugger
           self._ctx.logger.error('uh oh', error);
+          throw error;
       }
     });
   }

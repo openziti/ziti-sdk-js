@@ -836,7 +836,7 @@ function zitiConnect(options) {
  * @private
  */
 function abortHandshake(websocket, stream, message) {
-    ziti._ctx.logger.info(
+    ziti._ctx.logger.error(
       'abortHandshake() entered: message: %o, stream: %o',
       message,
       stream
@@ -846,6 +846,10 @@ function abortHandshake(websocket, stream, message) {
   
     const err = new Error(message);
     Error.captureStackTrace(err, abortHandshake);
+
+    if (isUndefined(stream)) {
+      return
+    }
   
     if (stream.setHeader) {
       stream.abort();

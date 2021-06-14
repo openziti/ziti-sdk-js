@@ -602,11 +602,14 @@ ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRout
 
     // Get a channel connection to each of the Edge Routers that have a WS binding, initiating a connection if channel is not yet connected
     edgeRouters.forEach(async function(edgeRouter, idx, array) {
+// TEMP
+// if (edgeRouter.urls.ws === 'ws://curtlaptop-ws:3333') {
       let ch = await self.getChannelByEdgeRouter(conn, edgeRouter);
       self.logger.debug('initiating Hello to [%s] for session[%s]', edgeRouter.urls.ws, conn.token);  
       pendingChannelConnects.push( 
         ch.hello() 
       );
+// }      
 
       if (idx === array.length - 1) {
         resolve(pendingChannelConnects);  // Return to caller only after we have processed all edge routers

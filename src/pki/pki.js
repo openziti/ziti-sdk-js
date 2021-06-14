@@ -218,12 +218,14 @@ ZitiPKI.prototype.generateKeyPair = async function() {
 
         let privatePEM = forge.pki.privateKeyToPem(self._privateKey);
         privatePEM = privatePEM.replace(/\\n/g, '\n');
-        privatePEM = privatePEM.replace('\r', '');
+        privatePEM = privatePEM.replace(/[\r]+/g, '');
+        privatePEM = privatePEM.replace(/\n/g, '\x0a');
         await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY, privatePEM, new Date(8640000000000000));
     
         let publicPEM = forge.pki.publicKeyToPem(self._publicKey);
         publicPEM = publicPEM.replace(/\\n/g, '\n');
-        publicPEM = publicPEM.replace('\r', '');
+        publicPEM = publicPEM.replace(/[\r]+/g, '');
+        publicPEM = publicPEM.replace(/\n/g, '\x0a');
         await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY, publicPEM, new Date(8640000000000000));    
 
         endTime = performance.now();

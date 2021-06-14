@@ -118,7 +118,7 @@
     "lodash.tonumber": "^4.0.3",
     "micromodal": "^0.4.6",
     "multistream": "^4.1.0",
-    "node-forge": "^0.10.0",
+    "node-forge": "github:githoniel/forge",
     "pkijs": "^2.1.90",
     "promise-controller": "^1.0.0",
     "promise.prototype.finally": "^3.1.2",
@@ -129,6 +129,7 @@
     "stream-browserify": "^3.0.0",
     "typedarray-to-buffer": "^4.0.0",
     "url": "^0.11.0",
-    "utf-8-validate": "^5.0.4"
+    "utf-8-validate": "^5.0.4",
+    "uuid": "^8.3.2"
   }
 }

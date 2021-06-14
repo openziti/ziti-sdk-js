@@ -94,7 +94,7 @@ exports.convertPemToCertificate = (pem) => {
  *
  * @param {string} pem
  */  
-exports.printCertificate = (certificateBuffer) => {
+exports.printCertificate = (certificate) => {
     console.log(certificate);
     console.log('Certificate Serial Number');
     console.log('Certificate Issuance');
