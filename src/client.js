@@ -350,7 +350,7 @@ class ZitiClient {
         ziti._ctx = ctx;      
       }
 
-      // release();    
+      release();    
 
       // console.log('js-sdk fetchFromServiceWorker() released ziti._mutex');
 
@@ -418,12 +418,7 @@ class ZitiClient {
       req.on('response', async res => {
 
         ziti._ctx.logger.debug('fetchFromServiceWorker(): on.response entered for [%s]', url);
-
-        //TEMP
-        release();    
-        console.log('js-sdk fetchFromServiceWorker() released ziti._mutex');
   
-
         let body = res.pipe(new PassThrough());
 
         if (req.path === '/oauth/google/login') {
@@ -788,7 +783,8 @@ if (typeof window !== 'undefined') {
       if (!isUndefined(ziti._ctx)) {
       }
 
-      purgeSensitiveValues();   // flush the IndexedDB
+      //TEMP
+      // purgeSensitiveValues();   // flush the IndexedDB
       
       // e.preventDefault(); // If you prevent default behavior in Mozilla Firefox prompt will always be shown
       // e.returnValue = '';       // Chrome requires returnValue to be set
@@ -839,6 +835,37 @@ _onMessage_generateKeyPair = async ( event ) => {
 /**
  * 
  */
+ _onMessage_isKeyPairPresent = async ( event ) => {
+  let pki = new ZitiPKI(ZitiPKI.prototype);
+  let haveKeys = await pki._haveKeypair();
+  if (haveKeys) {
+    _sendResponse( event, '1' );
+  } else {
+    _sendResponse( event, '0' );
+  }
+}
+
+
+/**
+ * 
+ */
+ _onMessage_isIdentityPresent = async ( event ) => {
+
+  let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+
+  if (
+    isNull( cert ) || isUndefined( cert )
+  ) {
+    _sendResponse( event, '0' );
+  } else {
+    _sendResponse( event, '1' );
+  }
+}
+
+
+/**
+ * 
+ */
  _onMessage_promptForZitiCreds = async ( event ) => {
 
   let username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
@@ -882,6 +909,78 @@ _onMessage_generateKeyPair = async ( event ) => {
 /**
  * 
  */
+ _onMessage_promptForZitiCredsNoWait = async ( event ) => {
+
+  _sendResponse( event, 'OK' ); // release the sw immediately
+
+  console.log('_onMessage_promptForZitiCredsNoWait: attempting to acquire mutex');
+
+  const release = await ziti._mutex.acquire();
+
+  console.log('_onMessage_promptForZitiCredsNoWait: now own mutex');
+
+  if (isUndefined(ziti._ctx)) {
+    let ctx = new ZitiContext(ZitiContext.prototype);
+    await ctx.initFromServiceWorker({ logLevel: LogLevel[event.data.options.logLevel] } );
+    ctx.logger.success('JS SDK version %s (_onMessage_promptForZitiCredsNoWait) completed', pjson.version);
+    ziti._ctx = ctx;
+  }
+
+  let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+
+  ziti._ctx.logger.info('_onMessage_promptForZitiCredsNoWait: cert is: %o', cert);
+
+  if (isNull( cert ) || isUndefined( cert ) ) {
+
+    let updb = new ZitiUPDB(ZitiUPDB.prototype);
+
+    await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+
+    let haveCreds = await updb._haveCreds();
+
+    if (!haveCreds) {
+
+      await updb.awaitCredentialsAndAPISession();
+
+    } else {
+
+      // Remain in this loop until the creds entered on login form are acceptable to the Ziti Controller
+      let validCreds;
+      do {
+        validCreds = await ziti._ctx.getFreshAPISession();
+      } while ( !validCreds );
+
+    }
+
+    // Do not proceed until we have a keypair (this will render a dialog to the user informing them of status)
+    let pki = new ZitiPKI(ZitiPKI.prototype);
+    await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+    await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
+
+    // Acquire the Cert
+    await ziti._ctx._awaitIdentityLoadComplete().catch((err) => {
+      ziti._ctx.logger.error(err);
+      release();
+      return;
+    });
+
+    // Trigger a page reload now that we have creds and keypair
+    setTimeout(function() {
+
+      console.log('_onMessage_promptForZitiCredsNoWait: releasing mutex');
+      release();
+    
+      ziti._ctx.logger.info('_onMessage_promptForZitiCredsNoWait: triggering page reload now');
+      window.location.reload();
+    
+    }, 1000);
+  }
+}
+
+
+/**
+ * 
+ */
 _onMessage_initClient = async ( event ) => {
   const release = await ziti._mutex.acquire();
   if (isUndefined(ziti._ctx)) {
@@ -912,7 +1011,12 @@ _onMessage_awaitIdentityLoaded = async ( event ) => {
   await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
   await pki.awaitKeyPairGenerationComplete(); // ensure keypair calculation has completed
 
-  if ( isNull( ziti._ctx._loginFormValues.username ) || isUndefined( ziti._ctx._loginFormValues.username ) || isNull( ziti._ctx._loginFormValues.password ) || isUndefined( ziti._ctx._loginFormValues.password ) ) {
+  if ( 
+    isNull( ziti._ctx._loginFormValues.username ) || 
+    isUndefined( ziti._ctx._loginFormValues.username ) || 
+    isNull( ziti._ctx._loginFormValues.password ) || 
+    isUndefined( ziti._ctx._loginFormValues.password ) 
+  ) {
 
     let username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
     let password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
@@ -996,7 +1100,10 @@ if (!zitiConfig.serviceWorker.active) {
              if (event.data.command === 'initClient')           { _onMessage_initClient( event ); }
         else if (event.data.command === 'generateKeyPair')      { _onMessage_generateKeyPair( event ); }
         else if (event.data.command === 'setControllerApi')     { _onMessage_setControllerApi( event ); }
+        else if (event.data.command === 'isKeyPairPresent')     { _onMessage_isKeyPairPresent( event ); }
+        else if (event.data.command === 'isIdentityPresent')    { _onMessage_isIdentityPresent( event ); }
         else if (event.data.command === 'promptForZitiCreds')   { _onMessage_promptForZitiCreds( event ); }
+        else if (event.data.command === 'promptForZitiCredsNoWait')   { _onMessage_promptForZitiCredsNoWait( event ); }
         else if (event.data.command === 'awaitIdentityLoaded')  { _onMessage_awaitIdentityLoaded( event ); }
         else if (event.data.command === 'purgeCert')            { _onMessage_purgeCert( event ); }
         

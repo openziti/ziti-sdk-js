@@ -114,8 +114,8 @@ module.exports = class ZitiTLSConnection {
       cipherSuites: [
         forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA256,
         // forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA256,
-        // forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA,
-        // forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA
+        forge.tls.CipherSuites.TLS_RSA_WITH_AES_128_CBC_SHA,
+        forge.tls.CipherSuites.TLS_RSA_WITH_AES_256_CBC_SHA
       ],
 
       // virtualHost: 'curt-edge-wss-router:3023',
@@ -194,7 +194,6 @@ module.exports = class ZitiTLSConnection {
       },
 
       error: function(connection, error) {
-        debugger
           self._ctx.logger.error('uh oh', error);
           throw error;
       }
