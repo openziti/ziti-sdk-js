@@ -1,3 +1,12 @@
+# [0.12.0](https://github.com/openziti/ziti-sdk-js/compare/v0.11.0...v0.12.0) (2021-06-17)
+
+
+### Features
+
+* non-incognito ([#83](https://github.com/openziti/ziti-sdk-js/issues/83)) ([e9247cf](https://github.com/openziti/ziti-sdk-js/commit/e9247cfb42cda0434dc80b8d3f4a9737f104ff6d))
+
+
+
 # [0.11.0](https://github.com/openziti/ziti-sdk-js/compare/v0.10.1...v0.11.0) (2021-05-26)
 
 
