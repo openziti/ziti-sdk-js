@@ -189,8 +189,13 @@ module.exports = class ZitiChannel {
         ws: this._zws,
         ch: this,
         datacb: this._recvFromWireAfterDecrypt
-
       });
+      this._ctx.logger.debug('starting  ZitiTLSConnection.pullKeyPair for: [%o]', this._tlsConn.getUUID());
+      await this._tlsConn.pullKeyPair().catch((e) => {
+        this._ctx.logger.error(e);
+        throw new Error(e);
+      });
+      this._ctx.logger.debug('completed ZitiTLSConnection.pullKeyPair for: [%o]', this._tlsConn.getUUID());
   
       this._tlsConn.create();
 
@@ -827,7 +832,7 @@ module.exports = class ZitiChannel {
    */
   async _recvFromWire(data) {
     let buffer = await data.arrayBuffer();
-    this._ctx.logger.trace("_recvFromWire <- data len[%o]", buffer.byteLength);
+    this._ctx.logger.debug("_recvFromWire <- data len[%o]", buffer.byteLength);
     let tlsBinaryString = Buffer.from(buffer).toString('binary');
     this._tlsConn.process(tlsBinaryString);
   }
@@ -892,7 +897,7 @@ module.exports = class ZitiChannel {
     let contentType = contentTypeView[0];
 
     let sequenceView = new Int32Array(buffer, 8, 1);
-    this._ctx.logger.trace("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
+    this._ctx.logger.debug("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
 
     let responseSequence = sequenceView[0];
 
