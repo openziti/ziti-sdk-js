@@ -219,7 +219,7 @@ HttpRequest.prototype.getRequestOptions = async function() {
 		throw new Error('Only HTTP(S) protocols are supported');
 	}
 
-	if (parsedURL.port !== '') {
+	if ((parsedURL.port !== '') && (parsedURL.port !== '80')) {
 		headers.set('Host', parsedURL.hostname + ":" + parsedURL.port);
 	} else {
 		headers.set('Host', parsedURL.hostname);
@@ -264,7 +264,7 @@ HttpRequest.prototype.getRequestOptions = async function() {
 	let cookieHeaderValue = '';
 	for (const cookie in cookieObject) {
 		if (cookieObject.hasOwnProperty(cookie)) {
-			cookieHeaderValue += cookie + '=' + cookieObject[cookie] + ';';
+			cookieHeaderValue += cookie + '=' + cookieObject[cookie] + '; ';
 		}
 	}
 	headers.set('Cookie', cookieHeaderValue);	
