@@ -282,6 +282,8 @@ function ZitiXMLHttpRequest () {
 
     settings.body = data;
 
+    settings.headers = headers;
+
     response = await fetch(settings.url, settings);
 
     self.status = response.status;

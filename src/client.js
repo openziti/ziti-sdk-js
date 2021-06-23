@@ -85,28 +85,30 @@ class ZitiClient {
           let name = cookie.substring(0, cookie.indexOf("="));
           let value = cookie.substring(cookie.indexOf("=") + 1);
           let cookie_value = value.substring(0, value.indexOf(";"));
-          let parts = value.split(";");
-          let cookiePath;
-          let expires;
-          for (let j = 0; j < parts.length; j++) {
-            let part = parts[j].trim();
-            part = part.toLowerCase();
-            if ( part.startsWith("path") ) {
-              cookiePath = part.substring(part.indexOf("=") + 1);
+          if (cookie_value !== ''){
+            let parts = value.split(";");
+            let cookiePath;
+            let expires;
+            for (let j = 0; j < parts.length; j++) {
+              let part = parts[j].trim();
+              part = part.toLowerCase();
+              if ( part.startsWith("path") ) {
+                cookiePath = part.substring(part.indexOf("=") + 1);
+              }
+              else if ( part.startsWith("expires") ) {
+                expires = new Date( part.substring(part.indexOf("=") + 1) );
+              }
+              else if ( part.startsWith("httponly") ) {
+                httpOnly = true;
+              }
             }
-            else if ( part.startsWith("expires") ) {
-              expires = new Date( part.substring(part.indexOf("=") + 1) );
-            }
-            else if ( part.startsWith("httponly") ) {
-              httpOnly = true;
-            }
+    
+            zitiCookies[name] = cookie_value;
+    
+            // console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
+    
+            await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
           }
-  
-          zitiCookies[name] = cookie_value;
-  
-          // console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
-  
-          await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
   
           release();
             
@@ -462,24 +464,27 @@ class ZitiClient {
                 let name = cookie.substring(0, cookie.indexOf("="));
                 let value = cookie.substring(cookie.indexOf("=") + 1);
                 let cookie_value = value.substring(0, value.indexOf(";"));
-                let parts = value.split(";");
-                for (let j = 0; j < parts.length; j++) {
-                  let part = parts[j].trim();
-                  if ( part.startsWith("Path") ) {
-                    cookiePath = part.substring(part.indexOf("=") + 1);
+                if (cookie_value !== ''){
+                  let parts = value.split(";");
+                  for (let j = 0; j < parts.length; j++) {
+                    let part = parts[j].trim();
+                    if ( part.startsWith("Path") ) {
+                      cookiePath = part.substring(part.indexOf("=") + 1);
+                    }
+                    else if ( part.startsWith("Expires") ) {
+                      expires = new Date( part.substring(part.indexOf("=") + 1) );
+                    }
+                    else if ( part.startsWith("HttpOnly") ) {
+                      httpOnly = true;
+                    }
                   }
-                  else if ( part.startsWith("Expires") ) {
-                    expires = new Date( part.substring(part.indexOf("=") + 1) );
-                  }
-                  else if ( part.startsWith("HttpOnly") ) {
-                    httpOnly = true;
-                  }
+    
+                  zitiCookies[name] = cookie_value;
+    
+                  await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+
+                  Cookies.set(name, cookie_value, { expires: expires, path:  cookiePath});
                 }
-  
-  
-                zitiCookies[name] = cookie_value;
-  
-                await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
               }
             }
           }
@@ -633,8 +638,7 @@ zitiFetch = async ( url, opts ) => {
   } else {  // the request is targeting the raw internet
 
     ziti._ctx.logger.warn('zitiFetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
-    var resp = window.realFetch(url, opts);
-    return resp;
+    return window.realFetch(url, opts);
   }
 
   /**
@@ -734,24 +738,28 @@ zitiFetch = async ( url, opts ) => {
               let name = cookie.substring(0, cookie.indexOf("="));
               let value = cookie.substring(cookie.indexOf("=") + 1);
               let cookie_value = value.substring(0, value.indexOf(";"));
-              let parts = value.split(";");
-              for (let j = 0; j < parts.length; j++) {
-                let part = parts[j].trim();
-                if ( part.startsWith("Path") ) {
-                  cookiePath = part.substring(part.indexOf("=") + 1);
+              if (cookie_value !== ''){
+                let parts = value.split(";");
+                for (let j = 0; j < parts.length; j++) {
+                  let part = parts[j].trim();
+                  if ( part.startsWith("Path") ) {
+                    cookiePath = part.substring(part.indexOf("=") + 1);
+                  }
+                  else if ( part.startsWith("Expires") ) {
+                    expires = new Date( part.substring(part.indexOf("=") + 1) );
+                  }
+                  else if ( part.startsWith("HttpOnly") ) {
+                    httpOnly = true;
+                  }
                 }
-                else if ( part.startsWith("Expires") ) {
-                  expires = new Date( part.substring(part.indexOf("=") + 1) );
-                }
-                else if ( part.startsWith("HttpOnly") ) {
-                  httpOnly = true;
-                }
+
+
+                zitiCookies[name] = cookie_value;
+
+                await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+
+                Cookies.set(name, cookie_value, { expires: expires, path:  cookiePath});
               }
-
-
-              zitiCookies[name] = cookie_value;
-
-              await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
             }
           }
         }

@@ -566,7 +566,7 @@ async function initAsClient(websocket, address, protocols, options) {
         var newUrl = new URL( address );
         newUrl.hostname = zitiConfig.httpAgent.target.host;
         newUrl.port = zitiConfig.httpAgent.target.port;
-        ziti._ctx.logger.trace( 'ZitiWebSocketWrapper: transformed URL: ', newUrl.toString());
+        ziti._ctx.logger.debug( 'ZitiWebSocketWrapper: transformed URL: ', newUrl.toString());
 
         serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
 
@@ -618,7 +618,7 @@ async function initAsClient(websocket, address, protocols, options) {
 
         for (const cookie in zitiCookies) {
             if (zitiCookies.hasOwnProperty(cookie)) {
-                cookieString += cookie + '=' + zitiCookies[cookie] + ';';
+                cookieString += cookie + '=' + zitiCookies[cookie] + '; ';
             }
         }
 
