@@ -1,3 +1,12 @@
+## [0.12.1](https://github.com/openziti/ziti-sdk-js/compare/v0.12.0...v0.12.1) (2021-06-23)
+
+
+### Bug Fixes
+
+* MM session loss ([#84](https://github.com/openziti/ziti-sdk-js/issues/84)) ([b40a423](https://github.com/openziti/ziti-sdk-js/commit/b40a4237422a02bc6dd501d16a44fcc4ec3f7e48))
+
+
+
 # [0.12.0](https://github.com/openziti/ziti-sdk-js/compare/v0.11.0...v0.12.0) (2021-06-17)
 
 
