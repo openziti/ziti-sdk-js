@@ -482,6 +482,8 @@ class ZitiClient {
                   zitiCookies[name] = cookie_value;
     
                   await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+
+                  Cookies.set(name, cookie_value, { expires: expires, path:  cookiePath});
                 }
               }
             }
@@ -755,6 +757,8 @@ zitiFetch = async ( url, opts ) => {
                 zitiCookies[name] = cookie_value;
 
                 await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+
+                Cookies.set(name, cookie_value, { expires: expires, path:  cookiePath});
               }
             }
           }
