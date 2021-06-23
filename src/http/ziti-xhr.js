@@ -284,12 +284,6 @@ function ZitiXMLHttpRequest () {
 
     settings.headers = headers;
 
-//TEMP
-let logoutRequest = (settings.url.match(/\/logout/) || []).length;
-if ((logoutRequest > 0)) {
-  debugger
-}
-
     response = await fetch(settings.url, settings);
 
     self.status = response.status;
