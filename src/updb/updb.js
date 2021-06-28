@@ -171,6 +171,10 @@ ZitiUPDB.prototype.promptForCreds = async function() {
       expiry.setMinutes(expiry.getMinutes()+5);
       await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_USERNAME, self._loginFormValues.username, expiry );
       await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_PASSWORD, self._loginFormValues.password, expiry );
+
+      // if we're restarting with updb, then purge any existing API session & cert
+      await ls.removeItem( zitiConstants.get().ZITI_API_SESSION_TOKEN );
+      await ls.removeItem( zitiConstants.get().ZITI_CLIENT_CERT_PEM );  
     });
   
     MicroModal.init({

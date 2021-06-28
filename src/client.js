@@ -621,6 +621,19 @@ zitiFetch = async ( url, opts ) => {
 
   if (url.match( regex )) { // the request is targeting the Ziti HTTP Agent
 
+    let updb = new ZitiUPDB(ZitiUPDB.prototype);
+    await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+    let haveCreds = await updb._haveCreds();
+    if (!haveCreds) {
+      await updb.awaitCredentialsAndAPISession();
+    } else {
+      // Remain in this loop until the creds entered on login form are acceptable to the Ziti Controller
+      let validCreds;
+      do {
+        validCreds = await ziti._ctx.ensureAPISession();
+      } while ( !validCreds );
+    }
+
     var newUrl = new URL( url );
     newUrl.hostname = zitiConfig.httpAgent.target.host;
     newUrl.port = zitiConfig.httpAgent.target.port;

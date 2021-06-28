@@ -281,8 +281,7 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 
     if (!isUndefined(res.error)) {
       self.logger.error(res.error.message);
-      resolve( false );
-      return;
+      return resolve( false );
     }
 
     self._apiSession = res.data;
@@ -293,7 +292,7 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 
     await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self._apiSession, new Date( Date.parse( self._apiSession.expiresAt )));
 
-    resolve( true );
+    return resolve( true );
   });
 }
 
