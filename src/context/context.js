@@ -30,6 +30,7 @@ const isUndefined           = require('lodash.isundefined');
 const result                = require('lodash.result');
 const has                   = require('lodash.has');
 const Mutex                 = require('async-mutex');
+const withTimeout           = require('async-mutex').withTimeout;
 const formatMessage         = require('format-message');
 
 let MicroModal
@@ -53,8 +54,11 @@ if (!zitiConfig.serviceWorker.active) {
   ZitiEnroller              = require('../enroll/enroller');
 }
 const pjson                 = require('../../package.json');
-const { selectordinal } = require('format-message');
+const { selectordinal }     = require('format-message');
 
+
+// const EXPIRE_WINDOW = 28.0 // TEMP, for debugging
+const EXPIRE_WINDOW = 2.0
 
 /**
  * Expose `ZitiContext`.
@@ -151,7 +155,7 @@ ZitiContext.prototype.loadIdentity = async function(self) {
       await enroller.enroll().catch((e) => {
 
         self.logger.error('Enrollment failed: [%o]', e);
-        localStorage.removeItem(zitiConstants.get().ZITI_JWT);
+        ls.removeItem(zitiConstants.get().ZITI_JWT);
         return reject('Enrollment failed');
 
       });
@@ -354,7 +358,58 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
     return resolve( true );
   });
 }
+
+
+/**
+ * 
+ *
+ */
+ ZitiContext.prototype.flushExpiredAPISessionData = async function() {
+
+  await ls.removeItem(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+  await ls.removeItem(zitiConstants.get().ZITI_IDENTITY_CERT);
+  this._apiSession = undefined;
+
+ }
+
  
+/**
+ * 
+ *
+ */
+ ZitiContext.prototype.isAPISessionExpired = async function() {
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    if (isUndefined( self._apiSession )) {
+
+      self.flushExpiredAPISessionData();
+
+      return resolve( true );            
+    }
+    else {
+
+      let now = Date.now();
+      let expiresAt = Date.parse( self._apiSession.expiresAt );
+      const diffTime = (expiresAt - now);
+      const diffMins = (diffTime / (1000 * 60));
+
+      self.logger.debug('ctx.isAPISessionExpired: mins before apiSession expiration [%o]', diffMins);
+
+      if (diffMins < EXPIRE_WINDOW) { // if expired, or about to expire
+
+        self.flushExpiredAPISessionData();    
+        return resolve( true );
+      
+      } else {
+        return resolve( false );  // session is not expired and is still viable
+      }
+    }
+  });
+}
+
 
 /**
  * Initialize the Ziti Context.
@@ -416,7 +471,7 @@ ZitiContext.prototype.init = async function(options) {
     self._connSeq = 0;
 
     self._mutex = new Mutex.Mutex();
-    self._connectMutex = new Mutex.Mutex();
+    self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
     self._loginFormValues = {};
     self._loginFormValues.username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
@@ -489,7 +544,7 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
     self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
 
     self._mutex = new Mutex.Mutex();
-    self._connectMutex = new Mutex.Mutex();
+    self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
     await self.loadAPISessionToken(self);
 
@@ -627,59 +682,77 @@ ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRout
  */
 ZitiContext.prototype.connect = async function(conn, networkSession) {
 
-  this.logger.debug('ZitiContext.connect() entered for [%o]', conn);  
+  return new Promise( async (resolve, reject) => {
 
-  // If we were not given a networkSession, it most likely means something (an API token, Cert, etc) expired,
-  // so we need to purge them and re-acquire
-  if (isUndefined( networkSession )) {
+    this.logger.debug('ZitiContext.connect() entered for [%o]', conn);  
 
-    localStorage.removeItem(zitiConstants.get().ZITI_API_SESSION_TOKEN);
-    localStorage.removeItem(zitiConstants.get().ZITI_IDENTITY_CERT);
+    // If we were not given a networkSession, it most likely means something (an API token, Cert, etc) expired,
+    // so we need to purge them and re-acquire
+    if (isUndefined( networkSession )) {
 
-    await this._awaitIdentityLoadComplete().catch((err) => {
-      return;
+      this.logger.debug('ctx.connect invoked with undefined networkSession');  
+
+      ls.removeItem(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+      ls.removeItem(zitiConstants.get().ZITI_IDENTITY_CERT);
+
+      await this._awaitIdentityLoadComplete().catch((err) => {
+        this.logger.error( err );  
+        reject( err );
+      });
+    
+    }
+
+    conn.token = networkSession.token;
+
+    // Get list of all Edge Router URLs where the Edge Router has a WS binding
+    let edgeRouters = filter(networkSession.edgeRouters, function(o) { return has(o, 'urls.ws'); });
+
+    // Something is wrong if we have no ws-enabled edge routers
+    if (isEqual(edgeRouters.length, 0)) {
+      reject(new Error('No Edge Routers with ws: binding were found'));
+    }
+
+    //
+    this.logger.debug('trying to acquire _connectMutex');  
+
+    await this._connectMutexWithTimeout.runExclusive(async () => {
+
+      this.logger.debug('now own _connectMutex');  
+
+      let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
+      this.logger.trace('pendingChannelConnects [%o]', pendingChannelConnects);  
+
+      let channelConnects = await Promise.all( pendingChannelConnects );
+      this.logger.debug('channelConnects [%o]', channelConnects);  
+
+      // Select channel with nearest Edge Router. Heuristic: select one with earliest Hello-handshake completion timestamp
+      let channelConnectWithNearestEdgeRouter = minby(channelConnects, function(channelConnect) { 
+        return channelConnect.channel.helloCompletedTimestamp;
+      });
+      let channelWithNearestEdgeRouter = channelConnectWithNearestEdgeRouter.channel;
+      this.logger.debug('Channel [%d] has nearest Edge Router', channelWithNearestEdgeRouter.getId());
+      channelWithNearestEdgeRouter._connections._saveConnection(conn);
+      conn.setChannel(channelWithNearestEdgeRouter);
+
+      // Initiate connection with Edge Router (creates Fabric session)
+      await channelWithNearestEdgeRouter.connect(conn);
+
+      if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
+        // Do not proceed until crypto handshake has completed
+        await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+      }
+
+      this.logger.debug('releasing _connectMutex');
+
+    })
+    .catch(( err ) => {
+      ziti._ctx.logger.error(err);
+      reject( err );
     });
-  
-  }
 
-  conn.token = networkSession.token;
+    resolve();
 
-  // Get list of all Edge Router URLs where the Edge Router has a WS binding
-  let edgeRouters = filter(networkSession.edgeRouters, function(o) { return has(o, 'urls.ws'); });
-
-  // Something is wrong if we have no ws-enabled edge routers
-  throwIf(isEqual(edgeRouters.length, 0), formatMessage('No Edge Routers with ws: binding were found.', { }) );
-
-  //
-  this.logger.debug('trying to acquire _connectMutex');  
-  const release = await this._connectMutex.acquire();
-  this.logger.debug('now own _connectMutex');  
-
-  let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
-  this.logger.trace('pendingChannelConnects [%o]', pendingChannelConnects);  
-
-  let channelConnects = await Promise.all( pendingChannelConnects );
-  this.logger.debug('channelConnects [%o]', channelConnects);  
-
-  // Select channel with nearest Edge Router. Heuristic: select one with earliest Hello-handshake completion timestamp
-  let channelConnectWithNearestEdgeRouter = minby(channelConnects, function(channelConnect) { 
-    return channelConnect.channel.helloCompletedTimestamp;
   });
-  let channelWithNearestEdgeRouter = channelConnectWithNearestEdgeRouter.channel;
-  this.logger.debug('Channel [%d] has nearest Edge Router', channelWithNearestEdgeRouter.getId());
-  channelWithNearestEdgeRouter._connections._saveConnection(conn);
-  conn.setChannel(channelWithNearestEdgeRouter);
-
-  // Initiate connection with Edge Router (creates Fabric session)
-  await channelWithNearestEdgeRouter.connect(conn);
-
-  if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
-    // Do not proceed until crypto handshake has completed
-    await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
-  }
-
-  this.logger.debug('releasing _connectMutex');  
-  release();
 
 }
 

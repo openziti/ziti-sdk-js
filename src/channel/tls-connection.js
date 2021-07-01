@@ -80,7 +80,7 @@ module.exports = class ZitiTLSConnection {
         isNull(this._clientCertPEM) ||
         isNull(this._clientPrivateKeyPEM)
       ) {
-        return reject( new Error('keypair nor present in local storage') );
+        return reject( new Error('keypair not present in local storage') );
       }
 
       return resolve();
