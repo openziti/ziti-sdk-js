@@ -471,7 +471,6 @@ ZitiContext.prototype.init = async function(options) {
     self._connSeq = 0;
 
     self._mutex = new Mutex.Mutex();
-    // self._connectMutex = new Mutex.Mutex();
     self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
     self._loginFormValues = {};
@@ -545,7 +544,6 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
     self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
 
     self._mutex = new Mutex.Mutex();
-    // self._connectMutex = new Mutex.Mutex();
     self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
     await self.loadAPISessionToken(self);
