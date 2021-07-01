@@ -1154,7 +1154,31 @@ async function purgeSensitiveValues() {
 }
 
 
-(async function purgeExpiredValues() { 
+/**
+ * Propagate the cookies from the browser's cookie cache into the Ziti-owned storage.
+ */
+async function propagateBrowserCookieValues() {
+
+  let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+  if (isNull(zitiCookies)) {
+    zitiCookies = {}
+  }
+
+  // Obtain all Cookie KV pairs from the browser Cookie cache
+	let browserCookies = Cookies.get();
+	for (const cookie in browserCookies) {
+		if (browserCookies.hasOwnProperty( cookie )) {
+			zitiCookies[cookie] = browserCookies[cookie];
+		}
+	}
+
+  await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
+}
+
+
+async function purgeExpiredValues() {
+
+  propagateBrowserCookieValues();
  
   // await ls.getWithExpiry( zitiConstants.get().ZITI_CONTROLLER );               // The location of the Controller REST endpoint
   // await ls.getWithExpiry( zitiConstants.get().ZITI_SERVICES );                 // 
@@ -1169,4 +1193,6 @@ async function purgeSensitiveValues() {
   // await ls.getWithExpiry( zitiConstants.get().ZITI_COOKIES );                  // 
 
   setTimeout(purgeExpiredValues, (1000 * 5) );  // pulse this function every few seconds
-})()        
+}
+
+setTimeout(purgeExpiredValues, 1 );
