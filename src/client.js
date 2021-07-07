@@ -666,10 +666,32 @@ zitiFetch = async ( url, opts ) => {
 
   } else if (url.match( regexSlash )) { // the request starts with a slash
 
-    //TODO: impl this
+    await ziti._clientMutexNoTimeout.runExclusive(async () => {
 
-    ziti._ctx.logger.warn('zitiFetch(): requests starts with SLASH, bypassing intercept of [%s]', url);
-    return window.realFetch(url, opts);
+      let isExpired = await ziti._ctx.isAPISessionExpired();
+
+      if (isExpired) {
+        let updb = new ZitiUPDB(ZitiUPDB.prototype);
+        await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+        await updb.awaitCredentialsAndAPISession();
+      }
+    })
+    .catch(( err ) => {
+      ziti._ctx.logger.error(err);
+      throw err;
+    });
+
+    var newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + url );
+    ziti._ctx.logger.trace( 'zitiFetch: transformed URL: ', newUrl.toString());
+
+    serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
+
+    if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
+      ziti._ctx.logger.warn('zitiFetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+      return window.realFetch(url, opts);
+    }  
+
+    url = newUrl.toString();
 
   } else {  // the request is targeting the raw internet
 
@@ -680,7 +702,7 @@ zitiFetch = async ( url, opts ) => {
   /**
    * ------------ Now Routing over Ziti -----------------
    */
-  ziti._ctx.logger.debug('zitiFetch(): serviceConfig match; intercepting [%s]', url);
+  ziti._ctx.logger.trace('zitiFetch(): serviceConfig match; intercepting [%s]', url);
 
 	return new Promise( async (resolve, reject) => {
 
