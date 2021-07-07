@@ -1,3 +1,12 @@
+## [0.12.4](https://github.com/openziti/ziti-sdk-js/compare/v0.12.3...v0.12.4) (2021-07-07)
+
+
+### Bug Fixes
+
+* intercept relative URLs ([#88](https://github.com/openziti/ziti-sdk-js/issues/88)) ([98b9d8e](https://github.com/openziti/ziti-sdk-js/commit/98b9d8ea4f93a3c7779e35cc4416b7ae5f06c587))
+
+
+
 ## [0.12.3](https://github.com/openziti/ziti-sdk-js/compare/v0.12.2...v0.12.3) (2021-07-01)
 
 
