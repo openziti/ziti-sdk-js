@@ -27,6 +27,7 @@ const CookieInterceptor = require('cookie-interceptor');
 
 
 const ZitiContext         = require('./context/context');
+const contextTypes        = require('./context/contexttypes');
 const ZitiConnection      = require('./channel/connection');
 const HttpRequest         = require('./http/request');
 const HttpResponse        = require('./http/response');
@@ -348,7 +349,7 @@ class ZitiClient {
 
         if (isUndefined(ziti._ctx)) {  // If we have no context, create it now
           let ctx = new ZitiContext(ZitiContext.prototype);
-          await ctx.initFromServiceWorker({ logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+          await ctx.initFromServiceWorker({ contextType: contextTypes.ServiceWorkerType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
           ctx.logger.success('JS SDK version %s init (fetchFromServiceWorker) completed', pjson.version);
           ziti._ctx = ctx;      
         }
@@ -533,7 +534,7 @@ zitiFetch = async ( url, opts ) => {
   await ziti._clientMutexWithTimeout.runExclusive(async () => {
     if (isUndefined(ziti._ctx)) {  // If we have no context, create it now
       let ctx = new ZitiContext(ZitiContext.prototype);
-      await ctx.initFromServiceWorker({ logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+      await ctx.initFromServiceWorker({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
       ctx.logger.success('JS SDK version %s init (zitiFetch) completed', pjson.version);
       ziti._ctx = ctx;      
     }
@@ -873,25 +874,17 @@ _onMessage_generateKeyPair = async ( event ) => {
     isNull( password ) || isUndefined( password )
   ) {
 
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 1');
-
     let updb = new ZitiUPDB(ZitiUPDB.prototype);
   
     await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
 
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 2');
-
     await updb.awaitCredentialsAndAPISession();
   
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 3');
-
     // Do not proceed until we have a keypair (this will render a dialog to the user informing them of status)
     let pki = new ZitiPKI(ZitiPKI.prototype);
     await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
     await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
   
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 4');
-
     // Trigger a page reload now that we have creds and keypair
     setTimeout(function(){ 
       window.location.reload();

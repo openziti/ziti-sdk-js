@@ -27,6 +27,7 @@ const isUndefined     = require('lodash.isundefined');
 const concat          = require('lodash.concat');
 const formatMessage   = require('format-message');
 const sodium          = require('libsodium-wrappers');
+const Mutex           = require('async-mutex');
 
 const defaultOptions  = require('./channel-options');
 const edge_protocol   = require('./protocol');
@@ -90,6 +91,7 @@ module.exports = class ZitiChannel {
     this._view_version = new Uint8Array(new ArrayBuffer(4));
     this._view_version.set(edge_protocol.VERSION, 0);
 
+    this._mutex = new Mutex.Mutex();
   }
 
   getCtx() {
@@ -918,6 +920,8 @@ module.exports = class ZitiChannel {
     let replyForView;
     let haveResponseSequence = false;
 
+    const release = await this._mutex.acquire();
+
     /**
      *  First Data msg for a new connection needs special handling
      */
@@ -1038,6 +1042,8 @@ module.exports = class ZitiChannel {
     
     this._ctx.logger.trace("recv <- response body: ", bodyView);
     this._tryHandleResponse(conn, responseSequence, {channel: this, data: bodyView});
+
+    release();
   }
 
 
