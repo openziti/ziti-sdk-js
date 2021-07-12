@@ -549,22 +549,23 @@ module.exports = class ZitiChannel {
    */
   async write(conn, data) {
 
-    throwIf(isEqual(conn.getState(), edge_protocol.conn_state.Closed), formatMessage('Attempt to write data to a closed connection { actual }', { actual: conn.getId()}) );
+    if (!isEqual(conn.getState(), edge_protocol.conn_state.Closed)) {
 
-    let sequence = conn.getAndIncrementSequence();
+      let sequence = conn.getAndIncrementSequence();
 
-    let headers = [
-      new Header( edge_protocol.header_id.ConnId, {
-        headerType: edge_protocol.header_type.IntType,
-        headerData: conn.getId()
-      }),
-      new Header( edge_protocol.header_id.SeqHeader, { 
-        headerType: edge_protocol.header_type.IntType, 
-        headerData: sequence 
-      })
-    ];
+      let headers = [
+        new Header( edge_protocol.header_id.ConnId, {
+          headerType: edge_protocol.header_type.IntType,
+          headerData: conn.getId()
+        }),
+        new Header( edge_protocol.header_id.SeqHeader, { 
+          headerType: edge_protocol.header_type.IntType, 
+          headerData: sequence 
+        })
+      ];
 
-    this.sendMessageNoWait( edge_protocol.content_type.Data, headers, data, { conn: conn, sequence: sequence });
+      this.sendMessageNoWait( edge_protocol.content_type.Data, headers, data, { conn: conn, sequence: sequence });
+    }
   }
 
 

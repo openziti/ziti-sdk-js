@@ -115,6 +115,8 @@ ZitiContext.prototype.loadAPISessionToken = async function(self) {
       self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
     }
 
+    setTimeout(self.apiSessionHeartbeat, (1000 * 60 * 5), self );
+
     resolve();
   });
 }
@@ -301,6 +303,23 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 }
 
 
+ZitiContext.prototype.apiSessionHeartbeat = async function( self ) {
+
+  let res = await self._controllerClient.getCurrentAPISession({ });
+
+  self._apiSession = res.data;
+  self.logger.debug('ctx.apiSessionHeartbeat(): _apiSession[%o]', self._apiSession);
+
+  if (!isUndefined( self._controllerClient )) {
+    self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+  }
+
+  await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self._apiSession, new Date( Date.parse( self._apiSession.expiresAt )));
+
+  setTimeout(self.apiSessionHeartbeat, (1000 * 60 * 5), self );
+}
+
+
 /**
  * 
  *
@@ -412,6 +431,45 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 
 
 /**
+ * 
+ *
+ */
+ ZitiContext.prototype.isIdentityCertExpired = async function() {
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let certExpiry = await ls.getExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+
+    if (isNull( certExpiry )) {
+
+      self.flushExpiredAPISessionData();
+
+      return resolve( true );            
+    }
+    else {
+
+      let now = Date.now();
+      const diffTime = (certExpiry - now);
+      const diffMins = (diffTime / (1000 * 60));
+
+      self.logger.debug('ctx.isIdentityCertExpired: mins before cert expiration [%o]', diffMins);
+
+      if (diffMins < EXPIRE_WINDOW) { // if expired, or about to expire
+
+        self.flushExpiredAPISessionData();    
+        return resolve( true );
+      
+      } else {
+        return resolve( false );  // cert is not expired and is still viable
+      }
+    }
+  });
+}
+
+
+/**
  * Initialize the Ziti Context.
  * 
  * Tasks:
@@ -465,6 +523,10 @@ ZitiContext.prototype.init = async function(options) {
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
     self._network_sessions = new Map();
+    let network_sessions = await ls.getWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS);
+    if (!isNull(network_sessions)) {
+      self._network_sessions = network_sessions;
+    }
     self._services = new Map();
     self._channels = new Map();
     self._channelSeq = 0;
@@ -532,6 +594,10 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
     self._network_sessions = new Map();
+    let network_sessions = await ls.getWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS);
+    if (!isNull(network_sessions)) {
+      self._network_sessions = network_sessions;
+    }
     self._services = new Map();
     self._channels = new Map();
     self._channelSeq = 0;
@@ -688,7 +754,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 
     // If we were not given a networkSession, it most likely means something (an API token, Cert, etc) expired,
     // so we need to purge them and re-acquire
-    if (isUndefined( networkSession )) {
+    if (isNull(networkSession) || isUndefined( networkSession )) {
 
       this.logger.debug('ctx.connect invoked with undefined networkSession');  
 
@@ -737,10 +803,14 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
       // Initiate connection with Edge Router (creates Fabric session)
       await channelWithNearestEdgeRouter.connect(conn);
 
-      if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
-        // Do not proceed until crypto handshake has completed
-        await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
-      }
+      if (conn.getState() == edge_protocol.conn_state.Connected) {
+
+        if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
+          // Do not proceed until crypto handshake has completed
+          await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+        }
+
+    }
 
       this.logger.debug('releasing _connectMutex');
 
@@ -1019,26 +1089,22 @@ ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
 
   return new Promise( async (resolve, reject) => {
 
-    let network_session;
-
     const release = await self._mutex.acquire();
 
     // if we do NOT have a NetworkSession for this serviceId, create it
     if (!self._network_sessions.has(serviceID)) {
-      
-      let network_session = await self.createNetworkSession(serviceID).catch((e) => { /* ignore */ });
 
-      // await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, network_session, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
+      network_session = await self.createNetworkSession(serviceID).catch((e) => { /* ignore */ });
 
       if (!isUndefined( network_session )) {
-
-        // await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, network_session, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
-
-        self.logger.debug('Created network_session [%o] ', network_session);
-        self._network_sessions.set(serviceID, network_session);
-
-      }
     
+        self.logger.debug('Created new network_session [%o] ', network_session);
+  
+      }
+  
+      self._network_sessions.set(serviceID, network_session);
+
+      await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, self._network_sessions, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
     }
     
     release();
