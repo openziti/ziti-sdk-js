@@ -490,7 +490,7 @@ module.exports = class ZitiChannel {
           conn._ctx.logger.debug('Connection [%d] now Crypto-enabled with Edge Router', conn.getId());
           return resolve();
         }
-        conn._ctx.logger.trace('awaitConnectionCryptoEstablishComplete() conn[%d] still not yet CryptoEstablishComplete', conn.getId());
+        conn._ctx.logger.debug('awaitConnectionCryptoEstablishComplete() conn[%d] still not yet CryptoEstablishComplete', conn.getId());
         setTimeout(waitForCryptoEstablishComplete, 100);
       })();
     });
@@ -934,7 +934,7 @@ module.exports = class ZitiChannel {
             let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
             if (!isUndefined(result)) {
               replyForView = new Int32Array(result.data, 0, 1);
-              responseSequence = replyForView[0];  
+              responseSequence = replyForView[0];
               haveResponseSequence = true;
               this._ctx.logger.debug("recv <- ReplyFor[%o] (should be for the crypto_header response)", responseSequence);
             }  
@@ -949,8 +949,8 @@ module.exports = class ZitiChannel {
       let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.ReplyFor);
       if (!isUndefined(result)) {
 
-        replyForView = new Int32Array(result.data, 0, 1);
-        responseSequence = replyForView[0];  
+        replyForView = new DataView( result.data.buffer.slice(result.data.byteOffset, result.data.byteLength + result.data.byteOffset) );
+        responseSequence = replyForView.getInt32(0, true); // second parameter truethy == want little endian;
         this._ctx.logger.trace("recv <- ReplyFor[%o]", responseSequence);
 
       } else {
@@ -959,7 +959,7 @@ module.exports = class ZitiChannel {
 
           let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
           replyForView = new Int32Array(result.data, 0, 1);
-          responseSequence = replyForView[0];  
+          responseSequence = replyForView[0];
           this._ctx.logger.trace("recv <- Close Response For [%o]", responseSequence);  
   
         } else {
@@ -1035,7 +1035,7 @@ module.exports = class ZitiChannel {
       // 
       let dataCallback = conn.getDataCallback();
       if (!isUndefined(dataCallback)) {
-        this._ctx.logger.trace("recv <- passing body to dataCallback ", bodyView);
+        this._ctx.logger.trace("recv <- contentType[%o] seq[%o] passing body to dataCallback", contentType, sequenceView[0]);
         dataCallback(conn, bodyView);
       }
     }
@@ -1064,12 +1064,9 @@ module.exports = class ZitiChannel {
 
     let messagesQueue = this._messages;
     if (!isUndefined(conn)) {
-      messagesQueue = conn.getMessages()
+      messagesQueue = conn.getMessages();
     }
-    // var uint8array = new TextEncoder().encode(data);
-    var string = new TextDecoder().decode(data.data);
-
-    this._ctx.logger.trace("_tryHandleResponse():  conn[%d] seq[%d] data[%o]", (conn ? conn.getId() : 'n/a'), responseSequence, string);
+    this._ctx.logger.trace("_tryHandleResponse():  conn[%d] seq[%d]", (conn ? conn.getId() : 'n/a'), responseSequence);
     if (!isNull(responseSequence)) {
       messagesQueue.resolve(responseSequence, data);
     } else {

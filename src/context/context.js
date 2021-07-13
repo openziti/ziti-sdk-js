@@ -505,12 +505,8 @@ ZitiContext.prototype.init = async function(options) {
     });
     self.logger.wrapConsole();
 
-    let domain
-    if (typeof window === 'undefined') {
-      domain = zitiConfig.controller.api;         // We're on service worker side
-    } else {
-      domain = window.zitiConfig.controller.api;  // We're on (normal) browser side
-    }
+    let domain = window.zitiConfig.controller.api;
+    
     self._controllerClient = new ZitiControllerClient({
       domain: domain,
       logger: self.logger
@@ -520,7 +516,6 @@ ZitiContext.prototype.init = async function(options) {
     let res = await self._controllerClient.listVersion();
     self._controllerVersion = res.data;
     self.logger.info('init Controller Version: [%o]', self._controllerVersion);
-
 
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
@@ -534,14 +529,21 @@ ZitiContext.prototype.init = async function(options) {
     self._channelSeq = 0;
     self._connSeq = 0;
 
-    self._mutex = new Mutex.Mutex();
-    self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
-
     self._loginFormValues = {};
     self._loginFormValues.username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
     self.logger.info('ZITI_IDENTITY_USERNAME: [%o]', self._loginFormValues.username);
     self._loginFormValues.password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
     self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
+
+    self._mutex = new Mutex.Mutex();
+    self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
+
+    await self.loadAPISessionToken(self);
+
+    let services = await ls.getWithExpiry(zitiConstants.get().ZITI_SERVICES);
+    if (!isNull(services)) {
+      self._services = services;
+    }
 
     resolve();
   });
@@ -756,7 +758,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 
   return new Promise( async (resolve, reject) => {
 
-    self.logger.debug('contextType[%d] connect() entered for conn[%o]', self.contextType, conn);  
+    self.logger.debug('contextType[%d] connect() entered for conn[%o]', self.contextType, conn.getId());  
 
     // If we were not given a networkSession, it most likely means something (an API token, Cert, etc) expired,
     // so we need to purge them and re-acquire
@@ -785,7 +787,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
     }
 
     //
-    self.logger.debug('contextType[%d] trying to acquire _connectMutex for conn[%o]', self.contextType, conn);
+    self.logger.debug('contextType[%d] trying to acquire _connectMutex for conn[%o]', self.contextType, conn.getId());
 
     await self._connectMutexWithTimeout.runExclusive(async () => {
 

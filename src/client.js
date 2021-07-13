@@ -534,7 +534,8 @@ zitiFetch = async ( url, opts ) => {
   await ziti._clientMutexWithTimeout.runExclusive(async () => {
     if (isUndefined(ziti._ctx)) {  // If we have no context, create it now
       let ctx = new ZitiContext(ZitiContext.prototype);
-      await ctx.initFromServiceWorker({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+      // await ctx.initFromServiceWorker({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+      await ctx.init({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
       ctx.logger.success('JS SDK version %s init (zitiFetch) completed', pjson.version);
       ziti._ctx = ctx;      
     }
