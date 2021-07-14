@@ -1,3 +1,12 @@
+## [0.12.6](https://github.com/openziti/ziti-sdk-js/compare/v0.12.5...v0.12.6) (2021-07-14)
+
+
+### Bug Fixes
+
+* ensure cert and net-session state is purged if api-sess expired while dormant ([#90](https://github.com/openziti/ziti-sdk-js/issues/90)) ([4ef0d15](https://github.com/openziti/ziti-sdk-js/commit/4ef0d15d1ba2997fb51442dc28e6ec82e660f551))
+
+
+
 ## [0.12.5](https://github.com/openziti/ziti-sdk-js/compare/v0.12.4...v0.12.5) (2021-07-14)
 
 
