@@ -36,9 +36,16 @@ localforage.config({
  */  
 exports.setWithExpiry = async (key, value, ttl) => {
 	return new Promise( async (resolve, reject) => {
+		if (isNull( ttl )) {
+			ttl = new Date(8640000000000000);
+		}
+		if (Object.prototype.toString.call(ttl) === '[object Date]') {
+			ttl = ttl.getTime();
+		}
 		const item = {
 			value: value,
 			expiry: ttl,
+			expiryDate: new Date( ttl ),
 		}
 		await localforage.setItem(key, item);
 		resolve();
@@ -62,12 +69,40 @@ exports.getWithExpiry = async (key) => {
 		} else {
 			const now = new Date()
 			// compare the expiry time of the item with the current time
-			if (now.getTime() > item.expiry) {
+			if ( (!isNull(item.expiry)) && (now.getTime() > item.expiry) ) {
 				// If the item is expired, delete the item from storage and return null
 				await localforage.removeItem(key)
 				resolve( null );
 			} else {
 				resolve( item.value );
+			}
+		}
+	});
+}
+
+/**
+ *	Return expiry value for specified key
+ *	or null if not found, or expired.
+ *
+ * @param {Object} key
+ * @return {Object} expiry value
+ */  
+ exports.getExpiry = async (key) => {
+	return new Promise( async (resolve, reject) => {
+
+		const item = await localforage.getItem(key)
+		// if the item doesn't exist, return null
+		if (isNull(item)) {
+			resolve( null );
+		} else {
+			const now = new Date()
+			// compare the expiry time of the item with the current time
+			if ( (!isNull(item.expiry)) && (now.getTime() > item.expiry) ) {
+				// If the item is expired, delete the item from storage and return null
+				await localforage.removeItem(key)
+				resolve( null );
+			} else {
+				resolve( item.expiry );
 			}
 		}
 	});

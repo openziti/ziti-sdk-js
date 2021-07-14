@@ -15,33 +15,11 @@ limitations under the License.
 */
 
 
-const serviceTypes = require('./servicetypes');
-const contextTypes = require('./contexttypes');
-const LogLevel    = require('../logLevels');
+const ContextTypes = {
 
-/**
- * Default options.
- */
+  ClientType: 1,
+  ServiceWorkerType: 2,
 
+}
 
-module.exports = {
-  
-    /**
-     * See {@link Options.serviceType}
-     *
-     */
-    serviceType: serviceTypes.RESTType,
-
-    /**
-     * See {@link Options.contextType}
-     *
-     */
-     contextType: contextTypes.ClientType,
-
-    /**
-     * See {@link Options.logLevel}
-     *
-     */
-    logLevel: LogLevel.Info,
-
-  };
+module.exports = ContextTypes;

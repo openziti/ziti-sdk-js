@@ -27,6 +27,7 @@ const CookieInterceptor = require('cookie-interceptor');
 
 
 const ZitiContext         = require('./context/context');
+const contextTypes        = require('./context/contexttypes');
 const ZitiConnection      = require('./channel/connection');
 const HttpRequest         = require('./http/request');
 const HttpResponse        = require('./http/response');
@@ -348,7 +349,7 @@ class ZitiClient {
 
         if (isUndefined(ziti._ctx)) {  // If we have no context, create it now
           let ctx = new ZitiContext(ZitiContext.prototype);
-          await ctx.initFromServiceWorker({ logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+          await ctx.initFromServiceWorker({ contextType: contextTypes.ServiceWorkerType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
           ctx.logger.success('JS SDK version %s init (fetchFromServiceWorker) completed', pjson.version);
           ziti._ctx = ctx;      
         }
@@ -506,10 +507,10 @@ const ziti = new ZitiClient();
 ziti.LogLevel = LogLevel;
 
 ziti._clientMutexNoTimeout = new Mutex.Mutex();
-ziti._clientMutexWithTimeout = withTimeout(new Mutex.Mutex(), 500);
+ziti._clientMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
 ziti._serviceWorkerMutexNoTimeout = new Mutex.Mutex();
-ziti._serviceWorkerMutexWithTimeout = withTimeout(new Mutex.Mutex(), 500);
+ziti._serviceWorkerMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
 ziti._cookiemutex = new Mutex.Mutex();
 
@@ -517,87 +518,6 @@ ziti.VERSION = pjson.version;
 
 module.exports = ziti;
 
-
-
-/**
- * Intercept all 'fetch' requests and route them over Ziti if the target host:port matches an active Ziti Service Config
- *
- * @param {String} url
- * @param {Object} opts
- * @return {Promise}
- * @api public
- */
-_fetch = async ( url, opts ) => {
-
-  console.warn('fetch(): entered for [' + url + ']');
-
-  if (isUndefined(ziti._ctx)) {  // If we have no context, do not intercept
-    console.warn('fetch(): no Ziti Context established yet; bypassing intercept of [' + url + ']');
-    // return window.realFetch(url, opts);
-    return ziti.realFetch(url, opts);
-  }
-
-  if (url.indexOf(ziti._ctx.getZtAPI()) !== -1) {  // If target is controller, do not intercept
-    ziti._ctx.logger.trace('fetch(): target is Ziti controller; bypassing intercept of [%s]', url);
-    return window.realFetch(url, opts);
-  }
-
-  let serviceName = await ziti._ctx.shouldRouteOverZiti(url);
-
-  if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
-    ziti._ctx.logger.warn('fetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
-    return window.realFetch(url, opts);
-  }
-
-  /**
-   * ------------ Now Routing over Ziti -----------------
-   */
-  ziti._ctx.logger.debug('fetch(): serviceConfig match; intercepting [%s]', url);
-
-	return new Promise( async (resolve, reject) => {
-
-    // build HTTP request object
-    let request = new HttpRequest(serviceName, url, opts);
-    const options = await request.getRequestOptions();
-
-    let req;
-
-    if (options.method === 'GET') {
-
-      req = http.get(options);
-
-    } else {
-
-      req = http.request(options);
-
-      req.end();
-    }
-
-    
-    req.on('error', err => {
-			ziti._ctx.logger.error('error EVENT: err: %o', err);
-			reject(new Error(`request to ${request.url} failed, reason: ${err.message}`));
-		});
-
-		req.on('response', async res => {
-      let body = res.pipe(new PassThrough());
-      const response_options = {
-				url: request.url,
-				status: res.statusCode,
-				statusText: res.statusMessage,
-				headers: res.headers,
-				size: request.size,
-				timeout: request.timeout,
-				counter: request.counter
-			};
-      let response = new HttpResponse(body, response_options);
-      resolve(response);
-    });
-
-
-  });
-
-}
 
 /**
  * Intercept all 'fetch' requests and route them over Ziti if the target host:port matches an active Ziti Service Config
@@ -614,7 +534,8 @@ zitiFetch = async ( url, opts ) => {
   await ziti._clientMutexWithTimeout.runExclusive(async () => {
     if (isUndefined(ziti._ctx)) {  // If we have no context, create it now
       let ctx = new ZitiContext(ZitiContext.prototype);
-      await ctx.initFromServiceWorker({ logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+      // await ctx.initFromServiceWorker({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+      await ctx.init({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
       ctx.logger.success('JS SDK version %s init (zitiFetch) completed', pjson.version);
       ziti._ctx = ctx;      
     }
@@ -636,18 +557,28 @@ zitiFetch = async ( url, opts ) => {
 
     await ziti._clientMutexNoTimeout.runExclusive(async () => {
 
-      let isExpired = await ziti._ctx.isAPISessionExpired();
+      let isExpired = await ziti._ctx.isIdentityCertExpired();
 
       if (isExpired) {
         let updb = new ZitiUPDB(ZitiUPDB.prototype);
         await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
         await updb.awaitCredentialsAndAPISession();
+
+        // Acquire fresh Cert
+        await ziti._ctx._awaitIdentityLoadComplete().catch((err) => {
+          ziti._ctx.logger.error(err);
+          return new Promise( async (resolve, reject) => {
+            reject( err );
+          });
+        });
       }
 
     })
     .catch(( err ) => {
       ziti._ctx.logger.error(err);
-      throw err;
+      return new Promise( async (resolve, reject) => {
+        reject( err );
+      });
     });
 
     var newUrl = new URL( url );
@@ -668,7 +599,7 @@ zitiFetch = async ( url, opts ) => {
 
     await ziti._clientMutexNoTimeout.runExclusive(async () => {
 
-      let isExpired = await ziti._ctx.isAPISessionExpired();
+      let isExpired = await ziti._ctx.isIdentityCertExpired();
 
       if (isExpired) {
         let updb = new ZitiUPDB(ZitiUPDB.prototype);
@@ -918,10 +849,11 @@ _onMessage_generateKeyPair = async ( event ) => {
  */
  _onMessage_isIdentityPresent = async ( event ) => {
 
-  let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+  let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+  let cert    = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
 
   if (
-    isNull( cert ) || isUndefined( cert )
+    isNull( apisess ) || isUndefined( apisess ) || isNull( cert ) || isUndefined( cert )
   ) {
     _sendResponse( event, '0' );
   } else {
@@ -943,25 +875,17 @@ _onMessage_generateKeyPair = async ( event ) => {
     isNull( password ) || isUndefined( password )
   ) {
 
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 1');
-
     let updb = new ZitiUPDB(ZitiUPDB.prototype);
   
     await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
 
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 2');
-
     await updb.awaitCredentialsAndAPISession();
   
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 3');
-
     // Do not proceed until we have a keypair (this will render a dialog to the user informing them of status)
     let pki = new ZitiPKI(ZitiPKI.prototype);
     await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
     await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
   
-    ziti._ctx.logger.info('_onMessage_promptForZitiCreds: ------------------ 4');
-
     // Trigger a page reload now that we have creds and keypair
     setTimeout(function(){ 
       window.location.reload();
@@ -980,11 +904,7 @@ _onMessage_generateKeyPair = async ( event ) => {
 
   _sendResponse( event, 'OK' ); // release the sw immediately
 
-  console.log('_onMessage_promptForZitiCredsNoWait: attempting to acquire _serviceWorkerMutexNoTimeout');
-
   await ziti._serviceWorkerMutexNoTimeout.runExclusive(async () => {
-
-    console.log('_onMessage_promptForZitiCredsNoWait: now own _serviceWorkerMutexNoTimeout');
 
     if (isUndefined(ziti._ctx)) {
       let ctx = new ZitiContext(ZitiContext.prototype);
@@ -993,11 +913,12 @@ _onMessage_generateKeyPair = async ( event ) => {
       ziti._ctx = ctx;
     }
 
-    let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+    let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+    let cert    = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
 
-    ziti._ctx.logger.info('_onMessage_promptForZitiCredsNoWait: cert is: %o', cert);
+    ziti._ctx.logger.trace('_onMessage_promptForZitiCredsNoWait: cert is: %o', cert);
 
-    if (isNull( cert ) || isUndefined( cert ) ) {
+    if ( isNull( apisess ) || isUndefined( apisess ) || isNull( cert ) || isUndefined( cert ) ) {
 
       let updb = new ZitiUPDB(ZitiUPDB.prototype);
 
@@ -1031,9 +952,7 @@ _onMessage_generateKeyPair = async ( event ) => {
 
       // Trigger a page reload now that we have creds and keypair
       setTimeout(function() {
-
-        console.log('_onMessage_promptForZitiCredsNoWait: releasing mutex');
-      
+    
         ziti._ctx.logger.info('_onMessage_promptForZitiCredsNoWait: triggering page reload now');
         window.location.reload();
       

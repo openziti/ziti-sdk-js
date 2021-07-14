@@ -152,13 +152,13 @@ module.exports = class ZitiTLSConnection {
 
       // client-side cert
       getCertificate: function(connection, hint) {
-        self._ctx.logger.debug('getCertificate(): for: %o, [%o]', self._uuid, self._clientCertPEM );
+        self._ctx.logger.trace('getCertificate(): for: %o, [%o]', self._uuid, self._clientCertPEM );
         return self._clientCertPEM;
       },
 
       // client-side private key
       getPrivateKey: function(connection, cert) {
-        self._ctx.logger.debug('getPrivateKey(): for: %o, [%o]', self._uuid, self._clientPrivateKeyPEM );
+        self._ctx.logger.trace('getPrivateKey(): for: %o, [%o]', self._uuid, self._clientPrivateKeyPEM );
         return self._clientPrivateKeyPEM;
       },
 

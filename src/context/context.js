@@ -115,6 +115,8 @@ ZitiContext.prototype.loadAPISessionToken = async function(self) {
       self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
     }
 
+    setTimeout(self.apiSessionHeartbeat, (1000 * 60 * 5), self );
+
     resolve();
   });
 }
@@ -301,6 +303,23 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 }
 
 
+ZitiContext.prototype.apiSessionHeartbeat = async function( self ) {
+
+  let res = await self._controllerClient.getCurrentAPISession({ });
+
+  self._apiSession = res.data;
+  self.logger.debug('ctx.apiSessionHeartbeat(): _apiSession[%o]', self._apiSession);
+
+  if (!isUndefined( self._controllerClient )) {
+    self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+  }
+
+  await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self._apiSession, new Date( Date.parse( self._apiSession.expiresAt )));
+
+  setTimeout(self.apiSessionHeartbeat, (1000 * 60 * 5), self );
+}
+
+
 /**
  * 
  *
@@ -412,6 +431,45 @@ ZitiContext.prototype._awaitIdentityLoadCompleteFromServiceWorker = async functi
 
 
 /**
+ * 
+ *
+ */
+ ZitiContext.prototype.isIdentityCertExpired = async function() {
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    let certExpiry = await ls.getExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+
+    if (isNull( certExpiry )) {
+
+      self.flushExpiredAPISessionData();
+
+      return resolve( true );            
+    }
+    else {
+
+      let now = Date.now();
+      const diffTime = (certExpiry - now);
+      const diffMins = (diffTime / (1000 * 60));
+
+      self.logger.debug('ctx.isIdentityCertExpired: mins before cert expiration [%o]', diffMins);
+
+      if (diffMins < EXPIRE_WINDOW) { // if expired, or about to expire
+
+        self.flushExpiredAPISessionData();    
+        return resolve( true );
+      
+      } else {
+        return resolve( false );  // cert is not expired and is still viable
+      }
+    }
+  });
+}
+
+
+/**
  * Initialize the Ziti Context.
  * 
  * Tasks:
@@ -434,6 +492,8 @@ ZitiContext.prototype.init = async function(options) {
 
     let _options = flatOptions(options, defaultOptions);
 
+    self.contextType = _options.contextType;
+
     self.logger = consola.create({
       level: _options.logLevel,
       reporters: [
@@ -445,12 +505,8 @@ ZitiContext.prototype.init = async function(options) {
     });
     self.logger.wrapConsole();
 
-    let domain
-    if (typeof window === 'undefined') {
-      domain = zitiConfig.controller.api;         // We're on service worker side
-    } else {
-      domain = window.zitiConfig.controller.api;  // We're on (normal) browser side
-    }
+    let domain = window.zitiConfig.controller.api;
+    
     self._controllerClient = new ZitiControllerClient({
       domain: domain,
       logger: self.logger
@@ -461,23 +517,33 @@ ZitiContext.prototype.init = async function(options) {
     self._controllerVersion = res.data;
     self.logger.info('init Controller Version: [%o]', self._controllerVersion);
 
-
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
     self._network_sessions = new Map();
+    let network_sessions = await ls.getWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS);
+    if (!isNull(network_sessions)) {
+      self._network_sessions = network_sessions;
+    }
     self._services = new Map();
     self._channels = new Map();
     self._channelSeq = 0;
     self._connSeq = 0;
-
-    self._mutex = new Mutex.Mutex();
-    self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
 
     self._loginFormValues = {};
     self._loginFormValues.username = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_USERNAME );
     self.logger.info('ZITI_IDENTITY_USERNAME: [%o]', self._loginFormValues.username);
     self._loginFormValues.password = await ls.getWithExpiry( zitiConstants.get().ZITI_IDENTITY_PASSWORD );
     self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
+
+    self._mutex = new Mutex.Mutex();
+    self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
+
+    await self.loadAPISessionToken(self);
+
+    let services = await ls.getWithExpiry(zitiConstants.get().ZITI_SERVICES);
+    if (!isNull(services)) {
+      self._services = services;
+    }
 
     resolve();
   });
@@ -507,6 +573,8 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
 
     let _options = flatOptions(options, defaultOptions);
 
+    self.contextType = _options.contextType;
+
     self.logger = consola.create({
       level: _options.logLevel,
       reporters: [
@@ -532,6 +600,10 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
     self._network_sessions = new Map();
+    let network_sessions = await ls.getWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS);
+    if (!isNull(network_sessions)) {
+      self._network_sessions = network_sessions;
+    }
     self._services = new Map();
     self._channels = new Map();
     self._channelSeq = 0;
@@ -682,21 +754,23 @@ ZitiContext.prototype._getPendingChannelConnects = async function(conn, edgeRout
  */
 ZitiContext.prototype.connect = async function(conn, networkSession) {
 
+  let self = this;
+
   return new Promise( async (resolve, reject) => {
 
-    this.logger.debug('ZitiContext.connect() entered for [%o]', conn);  
+    self.logger.debug('contextType[%d] connect() entered for conn[%o]', self.contextType, conn.getId());  
 
     // If we were not given a networkSession, it most likely means something (an API token, Cert, etc) expired,
     // so we need to purge them and re-acquire
-    if (isUndefined( networkSession )) {
+    if (isNull(networkSession) || isUndefined( networkSession )) {
 
-      this.logger.debug('ctx.connect invoked with undefined networkSession');  
+      self.logger.debug('ctx.connect invoked with undefined networkSession');  
 
       ls.removeItem(zitiConstants.get().ZITI_API_SESSION_TOKEN);
       ls.removeItem(zitiConstants.get().ZITI_IDENTITY_CERT);
 
-      await this._awaitIdentityLoadComplete().catch((err) => {
-        this.logger.error( err );  
+      await self._awaitIdentityLoadComplete().catch((err) => {
+        self.logger.error( err );  
         reject( err );
       });
     
@@ -713,40 +787,40 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
     }
 
     //
-    this.logger.debug('trying to acquire _connectMutex');  
+    self.logger.debug('contextType[%d] trying to acquire _connectMutex for conn[%o]', self.contextType, conn.getId());
 
-    await this._connectMutexWithTimeout.runExclusive(async () => {
+    await self._connectMutexWithTimeout.runExclusive(async () => {
 
-      this.logger.debug('now own _connectMutex');  
+      self.logger.debug('contextType[%d] now own _connectMutex for conn[%o]', self.contextType, conn.getId());
 
-      let pendingChannelConnects = await this._getPendingChannelConnects(conn, edgeRouters);
-      this.logger.trace('pendingChannelConnects [%o]', pendingChannelConnects);  
+      let pendingChannelConnects = await self._getPendingChannelConnects(conn, edgeRouters);
+      self.logger.trace('pendingChannelConnects [%o]', pendingChannelConnects);  
 
       let channelConnects = await Promise.all( pendingChannelConnects );
-      this.logger.debug('channelConnects [%o]', channelConnects);  
+      self.logger.trace('channelConnects [%o]', channelConnects);  
 
       // Select channel with nearest Edge Router. Heuristic: select one with earliest Hello-handshake completion timestamp
       let channelConnectWithNearestEdgeRouter = minby(channelConnects, function(channelConnect) { 
         return channelConnect.channel.helloCompletedTimestamp;
       });
       let channelWithNearestEdgeRouter = channelConnectWithNearestEdgeRouter.channel;
-      this.logger.debug('Channel [%d] has nearest Edge Router', channelWithNearestEdgeRouter.getId());
+      self.logger.debug('Channel [%d] has nearest Edge Router for conn[%o]', channelWithNearestEdgeRouter.getId(), conn.getId());
       channelWithNearestEdgeRouter._connections._saveConnection(conn);
       conn.setChannel(channelWithNearestEdgeRouter);
 
       // Initiate connection with Edge Router (creates Fabric session)
       await channelWithNearestEdgeRouter.connect(conn);
 
-      if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
-        // Do not proceed until crypto handshake has completed
-        await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+      if (conn.getState() == edge_protocol.conn_state.Connected) {
+        if (conn.getEncrypted()) {  // if connected to a service that has 'encryptionRequired'
+          // Do not proceed until crypto handshake has completed
+          await channelWithNearestEdgeRouter.awaitConnectionCryptoEstablishComplete(conn);
+        }
       }
-
-      this.logger.debug('releasing _connectMutex');
-
+      self.logger.debug('contextType[%d] releasing _connectMutex for conn[%o]', self.contextType, conn.getId());
     })
     .catch(( err ) => {
-      ziti._ctx.logger.error(err);
+      ziti._ctx.logger.error('contextType[%d] failed to acquire _connectMutex for conn[%o]: %o', self.contextType, conn.getId(), err);
       reject( err );
     });
 
@@ -1019,26 +1093,22 @@ ZitiContext.prototype.getNetworkSessionByServiceId = async function(serviceID) {
 
   return new Promise( async (resolve, reject) => {
 
-    let network_session;
-
     const release = await self._mutex.acquire();
 
     // if we do NOT have a NetworkSession for this serviceId, create it
     if (!self._network_sessions.has(serviceID)) {
-      
-      let network_session = await self.createNetworkSession(serviceID).catch((e) => { /* ignore */ });
 
-      // await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, network_session, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
+      network_session = await self.createNetworkSession(serviceID).catch((e) => { /* ignore */ });
 
       if (!isUndefined( network_session )) {
-
-        // await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, network_session, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
-
-        self.logger.debug('Created network_session [%o] ', network_session);
-        self._network_sessions.set(serviceID, network_session);
-
-      }
     
+        self.logger.debug('Created new network_session [%o] ', network_session);
+  
+      }
+  
+      self._network_sessions.set(serviceID, network_session);
+
+      await ls.setWithExpiry(zitiConstants.get().ZITI_NETWORK_SESSIONS, self._network_sessions, await ls.getWithExpiry(zitiConstants.get().ZITI_EXPIRY_TIME) );
     }
     
     release();
