@@ -548,6 +548,7 @@ zitiFetch = async ( url, opts ) => {
   });
 
   _internal_generateKeyPair();
+  _internal_isIdentityPresent();
 
   // We only want to intercept fetch requests that target the Ziti HTTP Agent
   var regex = new RegExp( zitiConfig.httpAgent.self.host, 'g' );
@@ -847,17 +848,35 @@ _onMessage_generateKeyPair = async ( event ) => {
 /**
  * 
  */
- _onMessage_isIdentityPresent = async ( event ) => {
+_internal_isIdentityPresent = async ( ) => {
 
-  let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
-  let cert    = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+  return new Promise( async function(resolve, reject) {
 
-  if (
-    isNull( apisess ) || isUndefined( apisess ) || isNull( cert ) || isUndefined( cert )
-  ) {
-    _sendResponse( event, '0' );
-  } else {
+    let identyPresent = false;
+
+    let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+
+    if (isNull( apisess ) || isUndefined( apisess )) {
+      await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );
+      await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT );
+    }
+    else {
+      let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+      if (!isNull( cert ) && !isUndefined( cert )) {
+        identyPresent = true;
+      }
+    }
+
+    return resolve(identyPresent);
+    
+  });
+}
+_onMessage_isIdentityPresent = async ( event ) => {
+  let identyPresent = await _internal_isIdentityPresent();
+  if ( identyPresent ) {
     _sendResponse( event, '1' );
+  } else {
+    _sendResponse( event, '0' );
   }
 }
 
