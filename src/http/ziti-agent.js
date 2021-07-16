@@ -103,9 +103,12 @@ ZitiAgent.prototype.addRequest = function(req, host, port, localAddress) {
  * @api public
  */
 
-ZitiAgent.prototype.createConnection = function(opts, fn) {
-    const socket = new ZitiSocket( opts );
-    socket.connect(opts);
-    fn(null, socket);
-    return socket;
+ZitiAgent.prototype.createConnection = function(opts, deferredFn) {
+    this.deferredFn = deferredFn;
+    const onSocketConnect = () => {
+        this.deferredFn(null, this.socket);
+    };
+    this.socket = new ZitiSocket( opts );
+    this.socket.connect(opts);
+    this.socket.once('connect', onSocketConnect);
 };
