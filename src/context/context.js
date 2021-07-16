@@ -42,6 +42,7 @@ const utils                 = require('../utils/utils');
 const ls                    = require('../utils/localstorage');
 const edge_protocol         = require('../channel/protocol');
 const defaultOptions        = require('./options');
+const contextTypes          = require('./contexttypes');
 const zitiConstants         = require('../constants');
 const ZitiReporter          = require('../utils/ziti-reporter');
 const ZitiControllerClient  = require('../context/controller-client');
@@ -151,6 +152,10 @@ ZitiContext.prototype.loadIdentity = async function(self) {
     if (! self.haveRequiredVariables(self) ) {
       // ...then we need to enroll
 
+      if (self.contextType == contextTypes.ServiceWorkerType) {
+        return reject( 'service worker cannot perform identity load; must be done from client' );
+      }
+
       let enroller = new ZitiEnroller(ZitiEnroller.prototype);
       enroller.init({ctx: self, logger: self.logger});
 
@@ -169,7 +174,7 @@ ZitiContext.prototype.loadIdentity = async function(self) {
       self._IDENTITY_KEY  = await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
     }
 
-    resolve();
+    return resolve();
 
   });
 }
@@ -769,9 +774,13 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
       ls.removeItem(zitiConstants.get().ZITI_API_SESSION_TOKEN);
       ls.removeItem(zitiConstants.get().ZITI_IDENTITY_CERT);
 
+      if (self.contextType == contextTypes.ServiceWorkerType) {
+        return reject( 'service worker cannot perform identity load; must be done from client' );
+      }
+
       await self._awaitIdentityLoadComplete().catch((err) => {
         self.logger.error( err );  
-        reject( err );
+        return reject( err );
       });
     
     }
@@ -783,7 +792,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
 
     // Something is wrong if we have no ws-enabled edge routers
     if (isEqual(edgeRouters.length, 0)) {
-      reject(new Error('No Edge Routers with ws: binding were found'));
+      return reject(new Error('No Edge Routers with ws: binding were found'));
     }
 
     //
@@ -824,8 +833,7 @@ ZitiContext.prototype.connect = async function(conn, networkSession) {
       reject( err );
     });
 
-    resolve();
-
+    return resolve();
   });
 
 }
