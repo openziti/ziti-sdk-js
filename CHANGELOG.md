@@ -1,3 +1,12 @@
+## [0.12.7](https://github.com/openziti/ziti-sdk-js/compare/v0.12.6...v0.12.7) (2021-07-16)
+
+
+### Bug Fixes
+
+* correct socket connect event sequencing ([#91](https://github.com/openziti/ziti-sdk-js/issues/91)) ([da0c200](https://github.com/openziti/ziti-sdk-js/commit/da0c200fd4b026c3b33c93b47d3b737c0bc2c39f))
+
+
+
 ## [0.12.6](https://github.com/openziti/ziti-sdk-js/compare/v0.12.5...v0.12.6) (2021-07-14)
 
 
