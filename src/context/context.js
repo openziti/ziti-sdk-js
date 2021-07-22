@@ -1028,7 +1028,7 @@ ZitiContext.prototype.getControllerChannel = function() {
 /**
  * Remain in lazy-sleepy loop until specified channel is connected.
  * 
- * @param {*} conn 
+ * @param {*} channel 
  */
 ZitiContext.prototype.awaitChannelConnectComplete = function(ch) {
   return new Promise((resolve) => {
@@ -1086,6 +1086,9 @@ ZitiContext.prototype.closeChannelByEdgeRouter = function( edgeRouter ) {
   this._channels.delete( edgeRouter );  
 }
 
+ZitiContext.prototype.closeAllChannels = function() {
+  this._channels = new Map();
+}
 
 ZitiContext.prototype.getServiceIdByDNSHostName = function(name) {
   let service_id = result(find(this._services, function(obj) {

@@ -377,7 +377,7 @@ module.exports = class ZitiChannel {
 
       case edge_protocol.content_type.StateClosed:
 
-        this._ctx.logger.warn("conn[%d] failed to connect", conn.getId());
+        this._ctx.logger.warn("conn[%d] failed to connect on ch[%d]", conn.getId(), this.getId());
         conn.setState(edge_protocol.conn_state.Closed);
         break;
 
@@ -1001,7 +1001,7 @@ module.exports = class ZitiChannel {
             if (len > 2000) {
               len = 2000;
             }
-            this._ctx.logger.debug("recv <- unencrypted_data (first 2000): %s", m1.substring(0, len));
+            this._ctx.logger.trace("recv <- unencrypted_data (first 2000): %s", m1.substring(0, len));
           } catch (e) { /* nop */ }
 
           bodyView = unencrypted_data.message;
@@ -1011,7 +1011,7 @@ module.exports = class ZitiChannel {
             len = 2000;
           }
           let dbgStr = String.fromCharCode.apply(null, bodyView).substring(0, len);
-          this._ctx.logger.debug("recv <- data (first 2000): %s", dbgStr);
+          this._ctx.logger.trace("recv <- data (first 2000): %s", dbgStr);
 
           //temp debugging
           // if (dbgStr.includes("var openMe = (window.parent")) {

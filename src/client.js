@@ -548,7 +548,7 @@ zitiFetch = async ( url, opts ) => {
   });
 
   _internal_generateKeyPair();
-  _internal_isIdentityPresent();
+  let identyPresent = await _internal_isIdentityPresent();
 
   // We only want to intercept fetch requests that target the Ziti HTTP Agent
   var regex = new RegExp( zitiConfig.httpAgent.self.host, 'g' );
@@ -572,6 +572,12 @@ zitiFetch = async ( url, opts ) => {
             reject( err );
           });
         });
+
+        // Trigger a page reload now that we have a fresh identity
+        updb.relodingPage();
+        setTimeout(function(){ 
+          window.location.reload();
+        }, 500);
       }
 
     })
@@ -864,6 +870,14 @@ _internal_isIdentityPresent = async ( ) => {
       let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
       if (!isNull( cert ) && !isUndefined( cert )) {
         identyPresent = true;
+      } else {
+        // If cert expired, purge any session data we might have
+        await ls.removeItem( zitiConstants.get().ZITI_API_SESSION_TOKEN );
+        await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );
+        // and also reset the channels
+        if (!isUndefined(ziti._ctx)) {
+          ziti._ctx.closeAllChannels();
+        }
       }
     }
 
@@ -1026,11 +1040,18 @@ if (!zitiConfig.serviceWorker.active) {
     /**
      *  Service Worker registration
      */
-    navigator.serviceWorker.register('ziti-sw.js', {scope: './'} ).then( function() {
+    navigator.serviceWorker.register('ziti-sw.js', {scope: './'} ).then( function( reg ) {
 
         if (navigator.serviceWorker.controller) {
             // If .controller is set, then this page is being actively controlled by our service worker.
             console.log('The Ziti service worker is now registered.');
+
+            // (function checkForUpdatedServiceWorker() {
+            //   console.log('checking for updated service worker.');
+            //   reg.update();
+            //   setTimeout( checkForUpdatedServiceWorker, 1000 * 60 * 30 );
+            // })();
+
         } else {
             // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
             // control. Until that happens, the service worker's fetch handler won't be used.
