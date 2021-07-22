@@ -1,3 +1,12 @@
+## [0.12.8](https://github.com/openziti/ziti-sdk-js/compare/v0.12.7...v0.12.8) (2021-07-22)
+
+
+### Bug Fixes
+
+* cert expire refresh ([#93](https://github.com/openziti/ziti-sdk-js/issues/93)) ([b5058b6](https://github.com/openziti/ziti-sdk-js/commit/b5058b650d2cf72e4d76507d4e94b340f2ac6ef7))
+
+
+
 ## [0.12.7](https://github.com/openziti/ziti-sdk-js/compare/v0.12.6...v0.12.7) (2021-07-16)
 
 
