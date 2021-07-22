@@ -388,6 +388,17 @@ ZitiEnroller.prototype.createEphemeralCert = async function() {
     let expiryTime = pkiUtil.getExpiryTimeFromCertificate(certificate);
     let expiryDate = new Date(expiryTime);
 
+    //
+    let becomesUsableTime = pkiUtil.getBecomesUsableTimeFromCertificate(certificate);
+    let becomesUsableTimeString = pkiUtil.getBecomesUsableStringFromCertificate(certificate);
+    let now = new Date();
+    let nowTime = now.getTime();
+    self.logger.info('controllerClient.createCurrentApiSessionCertificate returned cert with NotBefore time [%o][%o], it is now [%o][%o], difference of [%o]', becomesUsableTime, becomesUsableTimeString, nowTime, now, (nowTime-becomesUsableTime));
+    if (nowTime < becomesUsableTime) {
+      self.logger.error('controllerClient.createCurrentApiSessionCertificate returned cert with NotBefore IN THE FUTURE', becomesUsableTimeString);
+    }
+    //
+
     self.logger.debug('controllerClient.createCurrentApiSessionCertificate returned cert with expiryTime: [%o] expiryDate:[%o]', expiryTime, expiryDate);
 
     await ls.setWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT, certPEM, expiryTime);

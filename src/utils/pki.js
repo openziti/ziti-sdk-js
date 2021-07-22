@@ -123,3 +123,23 @@ exports.getExpiryTimeFromCertificate = (certificate) => {
 exports.getExpiryStringFromCertificate = (certificate) => {
     return certificate.notAfter.toSchema().toDate().toString();
 }
+
+
+/**
+ *	Return time (in millis) for when Certificate becomes usable
+ *
+ * @param {Buffer} certificateBuffer
+ */  
+ exports.getBecomesUsableTimeFromCertificate = (certificate) => {
+    return certificate.notBefore.toSchema().toDate().getTime();
+}
+
+
+/**
+ *	Return time (human-readable) for when Certificate becomes usable
+ *
+ * @param {Buffer} certificateBuffer
+ */  
+exports.getBecomesUsableStringFromCertificate = (certificate) => {
+    return certificate.notBefore.toSchema().toDate().toString();
+}
