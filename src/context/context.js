@@ -898,6 +898,40 @@ ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
 
 
 /**
+ * Determine if the given URL should be handled via CORS Proxy.
+ * 
+ * @returns {bool}
+ */
+ ZitiContext.prototype.shouldRouteOverCORSProxy = async function(url) {
+  let parsedURL = new URL(url);
+
+  let hostname = parsedURL.hostname;
+  let port = parsedURL.port;
+
+  if (port === '') {
+    if ((parsedURL.protocol === 'https:') || (parsedURL.protocol === 'wss:')) {
+      port = 443;
+    } else {
+      port = 80;
+    }
+  }
+
+  let corsHostsArray = zitiConfig.httpAgent.corsProxy.hosts.split(',');
+
+  return new Promise( async (resolve, reject) => {
+    let routeOverCORSProxy = false;
+    forEach(corsHostsArray, function( corsHost ) {
+      let corsHostSplit = corsHost.split(':');
+      if ((hostname === corsHostSplit[0]) && (port === parseInt(corsHostSplit[1], 10))) {
+        routeOverCORSProxy = true;
+      }
+    });
+    return resolve( routeOverCORSProxy );
+  });
+}
+
+
+/**
  * Return current value of the ztAPI
  *
  * @returns {undefined | string}

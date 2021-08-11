@@ -619,7 +619,7 @@ zitiFetch = async ( url, opts ) => {
       throw err;
     });
 
-    var newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + url );
+    let newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + url );
     ziti._ctx.logger.trace( 'zitiFetch: transformed URL: ', newUrl.toString());
 
     serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
@@ -633,8 +633,44 @@ zitiFetch = async ( url, opts ) => {
 
   } else {  // the request is targeting the raw internet
 
-    ziti._ctx.logger.warn('zitiFetch(): no http agent url match, bypassing intercept of [%s]', url);
-    return window.realFetch(url, opts);
+    serviceName = await ziti._ctx.shouldRouteOverZiti( url );
+
+    if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port
+
+      let routeOverCORSProxy = await ziti._ctx.shouldRouteOverCORSProxy( url );
+
+      if (routeOverCORSProxy) {     // If we hostname:port is something we need to CORS Proxy
+
+        ziti._ctx.logger.warn('zitiFetch(): doing CORS Proxying of [%s]', url);
+
+        let newUrl = new URL( url );
+        let corsTargetHostname = newUrl.hostname;
+        let corsTargetPort = newUrl.port;
+        if (corsTargetPort === '') {
+          if (newUrl.protocol === 'https:') {
+            corsTargetPort = '443';
+          } else {
+            corsTargetPort = '80';
+          }
+        }
+      
+        let corsTargetPathname = newUrl.pathname;
+        newUrl.hostname = zitiConfig.httpAgent.self.host;
+        newUrl.port = 443;
+        newUrl.pathname = '/ziti-cors-proxy/' + corsTargetHostname + ':' + corsTargetPort + corsTargetPathname;
+        // newUrl.pathname = '/ziti-cors-proxy/' + corsTargetHostname  + corsTargetPathname;
+        ziti._ctx.logger.warn( 'zitiFetch: transformed URL: ', newUrl.toString());   
+
+        return window.realFetch(newUrl, opts); // Send special request to HTTP Agent
+
+      } else {
+
+        ziti._ctx.logger.warn('zitiFetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+        return window.realFetch(url, opts);
+  
+      }
+
+    }  
   }
 
   /**
