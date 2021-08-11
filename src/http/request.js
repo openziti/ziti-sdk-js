@@ -196,6 +196,12 @@ HttpRequest.prototype.getRequestOptions = async function() {
 	const parsedURL = this[INTERNALS].parsedURL;
 	const headers = this[INTERNALS].headers;
 
+	// Transform all occurances of the HTTP Agent hostname back to the target hostname
+	var replace = zitiConfig.httpAgent.self.host;
+	var re = new RegExp(replace,"gi");
+	parsedURL.href = parsedURL.href.replace(re, zitiConfig.httpAgent.target.host);
+	parsedURL.search = parsedURL.search.replace(re, zitiConfig.httpAgent.target.host);
+
 	// fetch step 1.3
 	if (!headers.has('Accept')) {
 		headers.set('Accept', '*/*');
