@@ -1,3 +1,12 @@
+# [0.13.0](https://github.com/openziti/ziti-sdk-js/compare/v0.12.8...v0.13.0) (2021-08-11)
+
+
+### Features
+
+* CORS proxying ([#94](https://github.com/openziti/ziti-sdk-js/issues/94)) ([a1c4eaa](https://github.com/openziti/ziti-sdk-js/commit/a1c4eaa50133f10ec210bf8976041e2d09fdf65f))
+
+
+
 ## [0.12.8](https://github.com/openziti/ziti-sdk-js/compare/v0.12.7...v0.12.8) (2021-07-22)
 
 
