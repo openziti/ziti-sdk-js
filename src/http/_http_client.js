@@ -164,6 +164,8 @@ function ClientRequest(input, options, cb) {
     this.once('response', cb);
   }
 
+  this.domProxyHit = options.domProxyHit || 0;
+
   if (method === 'GET' ||
       method === 'HEAD' ||
       method === 'DELETE' ||

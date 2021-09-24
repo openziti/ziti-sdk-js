@@ -312,14 +312,17 @@ ZitiContext.prototype.apiSessionHeartbeat = async function( self ) {
 
   let res = await self._controllerClient.getCurrentAPISession({ });
 
-  self._apiSession = res.data;
-  self.logger.debug('ctx.apiSessionHeartbeat(): _apiSession[%o]', self._apiSession);
+  if (!isUndefined( res.data )) {
 
-  if (!isUndefined( self._controllerClient )) {
-    self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+    self._apiSession = res.data;
+    self.logger.debug('ctx.apiSessionHeartbeat(): _apiSession[%o]', self._apiSession);
+
+    if (!isUndefined( self._controllerClient )) {
+      self._controllerClient.setApiKey(self._apiSession.token, 'zt-session', false);
+    }
+
+    await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self._apiSession, new Date( Date.parse( self._apiSession.expiresAt )));
   }
-
-  await ls.setWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN, self._apiSession, new Date( Date.parse( self._apiSession.expiresAt )));
 
   setTimeout(self.apiSessionHeartbeat, (1000 * 60 * 5), self );
 }
@@ -932,6 +935,40 @@ ZitiContext.prototype.shouldRouteOverZiti = async function(url) {
 
 
 /**
+ * Determine if the given URL should be handled via DOM Proxy.
+ * 
+ * @returns {bool}
+ */
+ ZitiContext.prototype.shouldRouteOverDOMProxy = async function(url) {
+  let parsedURL = new URL(url);
+
+  let hostname = parsedURL.hostname;
+  let port = parsedURL.port;
+
+  if (port === '') {
+    if ((parsedURL.protocol === 'https:') || (parsedURL.protocol === 'wss:')) {
+      port = 443;
+    } else {
+      port = 80;
+    }
+  }
+
+  let corsHostsArray = zitiConfig.httpAgent.domProxy.hosts.split(',');
+
+  return new Promise( async (resolve, reject) => {
+    let routeOverCORSProxy = false;
+    forEach(corsHostsArray, function( corsHost ) {
+      let corsHostSplit = corsHost.split(':');
+      if ((hostname === corsHostSplit[0]) && (port === parseInt(corsHostSplit[1], 10))) {
+        routeOverCORSProxy = true;
+      }
+    });
+    return resolve( routeOverCORSProxy );
+  });
+}
+
+
+/**
  * Return current value of the ztAPI
  *
  * @returns {undefined | string}
@@ -1082,7 +1119,9 @@ ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouter) {
 
   return new Promise( async (resolve) => {
 
-    let ch = this._channels.get(edgeRouter.hostname);
+    let key = edgeRouter.hostname + '-' + conn.token;
+
+    let ch = this._channels.get( key );
 
     if (!isUndefined(ch)) {
 
@@ -1109,7 +1148,7 @@ ZitiContext.prototype.getChannelByEdgeRouter = function(conn, edgeRouter) {
     ch.setState(edge_protocol.conn_state.Connecting);
 
     this.logger.debug('Created ch[%o] ', ch);
-    this._channels.set(edgeRouter.hostname, ch);
+    this._channels.set(key, ch);
     
     resolve(ch);
   });

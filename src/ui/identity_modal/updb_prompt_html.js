@@ -75,6 +75,11 @@ exports.inject = () => {
         document.documentElement.appendChild(body);
     }
 
-    document.body.insertAdjacentHTML('afterbegin', htmlString);        
+    document.body.insertAdjacentHTML('afterbegin', htmlString);      
+    
+    // let div = document.createElement('div');
+    // div.innerHTML = htmlString;
+    // document.body.append(div);
+  
 }
   

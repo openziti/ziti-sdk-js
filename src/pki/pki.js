@@ -153,7 +153,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
 
     let haveKeys = await self._haveKeypair();
     if (haveKeys) {
-      self.logger.info('Pre-existing KeyPair found; skipping new keypair generation');
+      self.logger.trace('Pre-existing KeyPair found; skipping new keypair generation');
       resolve( false );
       return;
     }

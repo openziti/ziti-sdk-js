@@ -20,6 +20,9 @@ const randomBytes   = require('randombytes');
 const createHash    = require('create-hash');
 const isNull        = require('lodash.isnull');
 
+const ZitiContext   = require('../context/context');
+const contextTypes  = require('../context/contexttypes');
+const LogLevel      = require('../logLevels');
 const HttpRequest   = require('./request');
 const HttpResponse  = require('./response');
 const http          = require('./http');
@@ -28,6 +31,7 @@ const ls            = require('../utils/localstorage');
 const Receiver      = require('./receiver');
 const Sender        = require('./sender');
 const PerMessageDeflate = require('./permessage-deflate');
+const pjson         = require('../../package.json');
 
 
 const {
@@ -63,8 +67,6 @@ class ZitiWebSocketWrapper extends EventEmitter {
      */
     constructor(address, protocols, options) {
         super();
-
-        ziti._ctx.logger.info('ZitiWebSocketWrapper ctor entered for url: %o', address);
 
         this.readyState = ZitiWebSocketWrapper.CONNECTING;
         this.protocol = '';
@@ -165,7 +167,7 @@ class ZitiWebSocketWrapper extends EventEmitter {
    * @private
    */
   setSocket(socket, head, maxPayload) {
-    ziti._ctx.logger.info('setSocket() entered, socket: %o', socket);
+    // ziti._ctx.logger.info('setSocket() entered, socket: %o', socket);
 
     const receiver = new Receiver(
       this._binaryType,
@@ -209,11 +211,11 @@ class ZitiWebSocketWrapper extends EventEmitter {
    */
   emitClose() {
     if (!this._socket) {
-        ziti._ctx.logger.debug(
-        'emitClose 1: _closeCode=%o, _closeMessage=%o',
-        this._closeCode,
-        this._closeMessage
-      );
+      //   ziti._ctx.logger.debug(
+      //   'emitClose 1: _closeCode=%o, _closeMessage=%o',
+      //   this._closeCode,
+      //   this._closeMessage
+      // );
       this.readyState = ZitiWebSocketWrapper.CLOSED;
       this.emit('close', this._closeCode, this._closeMessage);
       return;
@@ -223,11 +225,11 @@ class ZitiWebSocketWrapper extends EventEmitter {
       this._extensions[PerMessageDeflate.extensionName].cleanup();
     }
 
-    ziti._ctx.logger.debug(
-      'emitClose 2: _closeCode=%o, _closeMessage=%o',
-      this._closeCode,
-      this._closeMessage
-    );
+    // ziti._ctx.logger.debug(
+    //   'emitClose 2: _closeCode=%o, _closeMessage=%o',
+    //   this._closeCode,
+    //   this._closeMessage
+    // );
 
     this._receiver.removeAllListeners();
     this.readyState = ZitiWebSocketWrapper.CLOSED;
@@ -491,6 +493,13 @@ async function initAsClient(websocket, address, protocols, options) {
 
     let serviceName;
 
+    if (isUndefined(ziti._ctx)) {  // If we have no context, create it now
+      let ctx = new ZitiContext(ZitiContext.prototype);
+      await ctx.init({ contextType: contextTypes.ClientType, logLevel: LogLevel[zitiConfig.httpAgent.zitiSDKjs.logLevel] } );
+      ctx.logger.success('JS SDK version %s init (ZitiWebSocketWrapper.initAsClient) completed', pjson.version);
+      ziti._ctx = ctx;      
+    }
+
     const opts = {
       enableTrace: true,
       protocolVersion: protocolVersions[1],
@@ -566,12 +575,12 @@ async function initAsClient(websocket, address, protocols, options) {
         var newUrl = new URL( address );
         newUrl.hostname = zitiConfig.httpAgent.target.host;
         newUrl.port = zitiConfig.httpAgent.target.port;
-        ziti._ctx.logger.debug( 'ZitiWebSocketWrapper: transformed URL: ', newUrl.toString());
+        // ziti._ctx.logger.debug( 'ZitiWebSocketWrapper: transformed URL: ', newUrl.toString());
 
         serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
 
         if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
-            ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', address);
+            // ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', address);
             opts.createConnection = isSecure ? tlsConnect : netConnect;
             opts.host = parsedUrl.hostname.startsWith('[')
             ? parsedUrl.hostname.slice(1, -1)
@@ -584,14 +593,18 @@ async function initAsClient(websocket, address, protocols, options) {
             opts.href = newUrl.toString().toLowerCase();
             opts.origin = "http://" + (zitiConfig.httpAgent.target.host).toLowerCase();
             if (zitiConfig.httpAgent.target.port !== '80') {
-              opts.origin += ":" + zitiConfig.httpAgent.target.port;
+              if (zitiConfig.httpAgent.target.port === '443') {
+                opts.origin = "https://" + (zitiConfig.httpAgent.target.host).toLowerCase();
+              } else {
+                opts.origin += ":" + zitiConfig.httpAgent.target.port;
+              }
             }
             opts.host = zitiConfig.httpAgent.target.host + ":" + zitiConfig.httpAgent.target.port;
         }
 
     } else {  // the request is targeting the raw internet
 
-        ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', address);
+        // ziti._ctx.logger.warn('ZitiWebSocketWrapper(): no associated serviceConfig, bypassing intercept of [%s]', address);
         opts.createConnection = isSecure ? tlsConnect : netConnect;
         opts.host = parsedUrl.hostname.startsWith('[')
         ? parsedUrl.hostname.slice(1, -1)
@@ -670,11 +683,11 @@ async function initAsClient(websocket, address, protocols, options) {
     // Send request
     let req = (websocket._req = get(req_options));
   
-    ziti._ctx.logger.info('WebSocket handshake request has been sent: %o', websocket._req);
+    // ziti._ctx.logger.info('WebSocket handshake request has been sent: %o', websocket._req);
   
     if (opts.timeout) {
       req.on('timeout', () => {
-        ziti._ctx.logger.info('req.on.timeout');
+        // ziti._ctx.logger.info('req.on.timeout');
         abortHandshake(
           websocket,
           websocket._req,
@@ -684,7 +697,7 @@ async function initAsClient(websocket, address, protocols, options) {
     }
   
     req.on('error', (err) => {
-        ziti._ctx.logger.error('req.on.error %o', err);
+        // ziti._ctx.logger.error('req.on.error %o', err);
   
         if (websocket._req.aborted) return;
   
@@ -695,7 +708,7 @@ async function initAsClient(websocket, address, protocols, options) {
     });
   
     req.on('response', (res) => {
-        ziti._ctx.logger.info('req.on.response %o', res);
+        // ziti._ctx.logger.info('req.on.response %o', res);
   
         const location = res.headers.location;
         const statusCode = res.statusCode;
@@ -727,7 +740,7 @@ async function initAsClient(websocket, address, protocols, options) {
     });
   
     req.on('upgrade', (res, socket, head) => {
-        ziti._ctx.logger.info('WebSocket handshake on.upgrade \nsocket=[%o] \nHTTP Response=[%o]', socket, res);
+        // ziti._ctx.logger.info('WebSocket handshake on.upgrade \nsocket=[%o] \nHTTP Response=[%o]', socket, res);
   
         websocket.emit('upgrade', res);
   
@@ -743,11 +756,11 @@ async function initAsClient(websocket, address, protocols, options) {
             .update(key + GUID)
             .digest('base64');
   
-        ziti._ctx.logger.info(
-            'WebSocket handshake on.upgrade\ndigest=%o\nheaders[sec-websocket-accept]=%o',
-            digest,
-            res.headers['sec-websocket-accept']
-        );
+        // ziti._ctx.logger.info(
+        //     'WebSocket handshake on.upgrade\ndigest=%o\nheaders[sec-websocket-accept]=%o',
+        //     digest,
+        //     res.headers['sec-websocket-accept']
+        // );
   
         if (res.headers['sec-websocket-accept'] !== digest) {
             abortHandshake(websocket, socket, 'Invalid Sec-WebSocket-Accept header');
@@ -767,7 +780,7 @@ async function initAsClient(websocket, address, protocols, options) {
         }
   
         if (protError) {
-            ziti._ctx.logger.error('protError=%o', protError);
+            // ziti._ctx.logger.error('protError=%o', protError);
             abortHandshake(websocket, socket, protError);
             return;
         }
@@ -794,7 +807,7 @@ async function initAsClient(websocket, address, protocols, options) {
             }
         }
   
-        ziti._ctx.logger.info('WebSocket handshake SUCCESSFUL');
+        // ziti._ctx.logger.info('WebSocket handshake SUCCESSFUL');
   
         websocket.setSocket(socket, head, opts.maxPayload);
     });
@@ -807,7 +820,7 @@ async function initAsClient(websocket, address, protocols, options) {
  */
 function zitiConnect(options) {
 
-    ziti._ctx.logger.info('zitiConnect() entered: %o', options);
+    // ziti._ctx.logger.info('zitiConnect() entered: %o', options);
   
     options.path = undefined;
   
@@ -836,11 +849,11 @@ function zitiConnect(options) {
  * @private
  */
 function abortHandshake(websocket, stream, message) {
-    ziti._ctx.logger.error(
-      'abortHandshake() entered: message: %o, stream: %o',
-      message,
-      stream
-    );
+    // ziti._ctx.logger.error(
+    //   'abortHandshake() entered: message: %o, stream: %o',
+    //   message,
+    //   stream
+    // );
   
     websocket.readyState = ZitiWebSocketWrapper.CLOSING;
   
@@ -949,7 +962,7 @@ function sendAfterClose(websocket, data, cb) {
    * @private
    */
   function receiverOnFinish() {
-    ziti._ctx.logger.info('receiverOnFinish() entered');
+    // ziti._ctx.logger.info('receiverOnFinish() entered');
     this[kWebSocket].emitClose();
   }
   
@@ -993,7 +1006,7 @@ function sendAfterClose(websocket, data, cb) {
  * @private
  */
 function socketOnClose() {
-    ziti._ctx.logger.info('ZitiWebSocketWrapper socketOnClose entered');
+    // ziti._ctx.logger.info('ZitiWebSocketWrapper socketOnClose entered');
   
     const websocket = this[kWebSocket];
   
@@ -1038,7 +1051,7 @@ function socketOnClose() {
    * @private
    */
   function socketOnData(chunk) {
-    ziti._ctx.logger.info('ZitiWebSocketWrapper socketOnData entered');
+    // ziti._ctx.logger.info('ZitiWebSocketWrapper socketOnData entered');
   
     if (!this[kWebSocket]._receiver.write(chunk)) {
       this.pause();
@@ -1051,7 +1064,7 @@ function socketOnClose() {
    * @private
    */
   function socketOnEnd() {
-    ziti._ctx.logger.debug('ZitiWebSocketWrapper socketOnEnd entered');
+    // ziti._ctx.logger.debug('ZitiWebSocketWrapper socketOnEnd entered');
   
     const websocket = this[kWebSocket];
   
@@ -1066,7 +1079,7 @@ function socketOnClose() {
    * @private
    */
   function socketOnError() {
-    ziti._ctx.logger.debug('ZitiWebSocketWrapper socketOnError entered');
+    // ziti._ctx.logger.debug('ZitiWebSocketWrapper socketOnError entered');
   
     const websocket = this[kWebSocket];
   

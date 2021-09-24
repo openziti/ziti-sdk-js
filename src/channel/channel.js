@@ -1018,14 +1018,15 @@ module.exports = class ZitiChannel {
 
           //   let str = String.fromCharCode.apply(null, bodyView).substring(0, bodyView.length);
 
-          //   str = str.replace('var openMe = (window.parent', 'debugger; var openMe = (window.parent');
+          //   // str = str.replace('var openMe = (window.parent', 'debugger; var openMe = (window.parent');
 
-          // //   str = str.replace('document.cookie = a;', 'document.cookie = a; debugger');
+          //   if (str.indexOf( '/api/extplugins/config' ) !== -1) {
+          //     debugger
+          //   }
 
-          // //   this._ctx.logger.debug("============== DEBUG INJECT: %s", str);
+          //   this._ctx.logger.debug("============== DEBUG INJECT: %s", str);
 
           //   bodyView = new TextEncoder("utf-8").encode(str);
-          // }
           
           // }
 
