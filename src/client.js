@@ -17,6 +17,7 @@ limitations under the License.
 
 const isUndefined     = require('lodash.isundefined');
 const isEqual         = require('lodash.isequal');
+const forEach         = require('lodash.foreach');
 const isNull          = require('lodash.isnull');
 const formatMessage   = require('format-message');
 const { PassThrough } = require('readable-stream')
@@ -24,6 +25,9 @@ const Mutex           = require('async-mutex');
 const withTimeout     = require('async-mutex').withTimeout;
 const Cookies         = require('js-cookie');
 const CookieInterceptor = require('cookie-interceptor');
+const select          = require('html-select');
+const tokenize        = require('html-tokenize');
+const through         = require('through2');
 
 
 const ZitiContext         = require('./context/context');
@@ -55,6 +59,9 @@ if (!zitiConfig.serviceWorker.active) {
   window.realFetch          = window.fetch;
   window.realXMLHttpRequest = window.XMLHttpRequest;
   window.realWebSocket      = window.WebSocket;
+  window.realInsertBefore   = Element.prototype.insertBefore;
+  window.realAppendChild    = Element.prototype.appendChild;
+  window.realSetAttribute   = Element.prototype.setAttribute;
 }
 
 /**
@@ -200,7 +207,7 @@ class ZitiClient {
       data: data
     });
 
-    ctx.logger.info('newConnection: conn[%d]', conn.getId());
+    ctx.logger.debug('newConnection: conn[%d]', conn.getId());
 
     return conn;
   };
@@ -359,6 +366,13 @@ class ZitiClient {
         ziti._ctx.logger.error(err);
         return reject( err );
       });
+
+      let redp = new RegExp(zitiConfig.httpAgent.target.host + "/ziti-dom-proxy/","gi");
+      let domProxyHit = (url.match(redp) || []).length;
+      if ((domProxyHit > 0)) {
+        url = url.replace(redp, '');
+        ziti._ctx.logger.debug('fetchFromServiceWorker: transformed dom-proxy url: ', url);
+      }
     
       let serviceName = await ziti._ctx.shouldRouteOverZiti(url).catch( async ( error ) => {
         ziti._ctx.logger.debug('fetchFromServiceWorker: purging cert and API token due to err: ', error);
@@ -378,7 +392,8 @@ class ZitiClient {
     
       // build HTTP request object
       let request = new HttpRequest(serviceName, url, opts);
-      const options = await request.getRequestOptions();
+      let options = await request.getRequestOptions();
+      options.domProxyHit = domProxyHit;
   
       let req;
   
@@ -425,7 +440,127 @@ class ZitiClient {
 
         ziti._ctx.logger.debug('fetchFromServiceWorker(): on.response entered for [%s]', url);
   
-        let body = res.pipe(new PassThrough());
+        let body;
+
+        if ((req.domProxyHit > 0)) {
+
+          let reS = new RegExp("src=\"/","gi");
+          let reH = new RegExp("href=\"/","gi");
+          let reS2 = new RegExp("\'\/resources","gi");
+
+          var s = select('script', function (e) {
+            var tr = through.obj(function (row, buf, next) {
+              let val = String(row[1]);
+              if (row[0] === 'open') {
+                let replace = 'src="https://' + req.host + '/';
+                let newVal = val.replace(reS, replace);
+                this.push([ row[0], newVal ]);
+              }
+              else if (row[0] === 'text') {
+                let replace = "'https://" + req.host + "/resources";
+                let newVal = val.replace(reS2, replace);
+                ziti._ctx.logger.debug('newVal [%s]', newVal);
+                this.push([ row[0], newVal ]);
+              } else {
+                this.push([ row[0], val ]);
+              }
+              next();
+            });
+            tr.pipe(e.createStream()).pipe(tr);
+          });
+
+          var l = select('link', function (e) {
+            var tr = through.obj(function (row, buf, next) {
+              let val = String(row[1]);
+              if (row[0] === 'open') {
+                let replace = 'href="https://' + req.host + '/';
+                let newVal = val.replace(reH, replace);
+                this.push([ row[0], newVal ]);
+              } else {
+                this.push([ row[0], val ]);
+              }
+              next();
+            });
+            tr.pipe(e.createStream()).pipe(tr);
+          });
+
+          var h = select('html', function (e) {
+            var tr = through.obj(function (row, buf, next) {
+              let val = String(row[1]);
+              if (row[0] === 'open') {
+                ziti._ctx.logger.debug('fetchFromServiceWorker(): in <html>, see open of [%s]', val);
+                let newVal = val;
+                if (val == '<html>') {
+                  newVal = val + 
+`<base href="https://${req.host}/">
+<script type="text/javascript">
+var zitiConfig = {
+  controller: {
+    api: "https://curt-controller:1280"
+  },
+  httpAgent: {
+    self: {
+        host: "browzer.duckdns.org",
+        port: "8443"
+    },
+    target: {
+      scheme: "http",
+      host: "spendai-dev2.electrifai.net",
+      port: "443"     
+    },
+    additionalTarget: {
+      scheme: "http",
+      host: "sisense-dev2.electrifai.net",
+      port: "443"     
+    },
+    corsProxy: {
+      hosts: "electrifai-products.oktapreview.com:443",
+    },
+    domProxy: {
+      hosts: "sisense-dev2.electrifai.net",
+    },
+    zitiSDKjs: {
+      location: "https://ziti-npm.s3.amazonaws.com/ziti_sdk_js/ziti.js",
+      logLevel: "Debug"
+    },
+    zitiSDKjsInjectionURL: {
+      location: "",
+    }
+  },
+  serviceWorker: {
+    location: "ziti-sw.js",
+    active: false
+  }
+}
+</script>
+<script type="text/javascript" src="https://ziti-npm.s3.amazonaws.com/ziti_sdk_js/ziti.js"></script>`;
+                }
+                this.push([ row[0], newVal ]);
+              }
+              else if (row[0] === 'text') {
+                ziti._ctx.logger.debug('fetchFromServiceWorker(): in <html>, see text of <head> [%s]', val);
+                this.push([ row[0], val ]);
+              } else {
+                this.push([ row[0], val ]);
+              }
+              next();
+            });
+            tr.pipe(e.createStream()).pipe(tr);
+          });
+
+          body = res.pipe(tokenize()).pipe(s).pipe(l).pipe(h).pipe(through.obj(function (row, buf, next) {
+                    this.push(row[1]);
+                    next();
+                  })).pipe(new PassThrough());
+
+        } else {
+
+          body = res.pipe(new PassThrough());
+
+        }
+
+        // Make sure browser won't kill response with a CORS error
+        res.headers['access-control-allow-origin'] = 'https://' + zitiConfig.httpAgent.self.host;
 
         if (req.path === '/oauth/google/login') {
           let location = res.headers.location;
@@ -573,6 +708,9 @@ zitiFetch = async ( url, opts ) => {
           });
         });
 
+        // Let sw know it should reset identity awareness
+        sendMessageToServiceworker( { command: 'identityLoaded', identityLoaded: 0 }  );
+
         // Trigger a page reload now that we have a fresh identity
         updb.relodingPage();
         setTimeout(function(){ 
@@ -619,8 +757,13 @@ zitiFetch = async ( url, opts ) => {
       throw err;
     });
 
-    let newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + url );
-    ziti._ctx.logger.trace( 'zitiFetch: transformed URL: ', newUrl.toString());
+    let newUrl;
+    if (document.baseURI === zitiConfig.httpAgent.self.host) {
+      newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + url );
+    } else {
+      newUrl = new URL( document.baseURI + url );
+    }
+    ziti._ctx.logger.debug( 'zitiFetch: transformed URL: ', newUrl.toString());
 
     serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
 
@@ -805,10 +948,98 @@ zitiFetch = async ( url, opts ) => {
 }
 
 
+/**
+ * 
+ */
+zitiDocumentInsertBefore = ( elem, args ) => {
+  // console.log('zitiDocumentInsertBefore(): ', elem);
+}
+
+
+/**
+ * 
+ */
+zitiDocumentAppendChild = ( elem, args ) => {
+  // console.log('zitiDocumentAppendChild() elem: ', elem);
+  let transformed = false;
+  if (elem[0].outerHTML) {
+
+    let domHostsArray = zitiConfig.httpAgent.domProxy.hosts.split(',');
+
+    forEach(domHostsArray, function( domHost ) {
+
+      let re = new RegExp(domHost,"gi");
+      let redp = new RegExp("ziti-dom-proxy","gi");
+
+      let hit = (elem[0].outerHTML.match(re) || []).length;
+      if ((hit > 0)) {  // we see a hostname we need to transform
+
+        hit = (elem[0].outerHTML.match(redp) || []).length;
+        if ((hit == 0)) { // ...and we haven't been here before
+
+          // Transform all occurances of the DOM Proxy hostname into a URL our sw can intercept
+          let replace = zitiConfig.httpAgent.self.host + '/ziti-dom-proxy/' + domHost;
+          try {
+	          let newSRC = elem[0].src.replace(re, replace);
+	          elem[0].src = newSRC;
+            console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
+            transformed = true;
+          }
+          catch (e) {
+            console.error(e);
+          }
+        }
+      }
+    });
+
+    if (!transformed) {
+      // console.log('zitiDocumentAppendChild() NOT TRANSFORMED YET');
+
+      let re = new RegExp("src\=\"\/","gi");
+
+      let hit = (elem[0].outerHTML.match(re) || []).length;
+      if ((hit > 0)) {  // we see a relative path
+
+        console.log('zitiDocumentAppendChild() starts with SLASH: ', elem[0].outerHTML);
+
+        let replace = 'src="https://' + zitiConfig.httpAgent.additionalTarget.host + '/';
+        console.log('zitiDocumentAppendChild() additionalTarget: ', zitiConfig.httpAgent.additionalTarget.host);
+        console.log('zitiDocumentAppendChild() replace: ', replace);
+        let newSRC = elem[0].src.replace(re, replace);
+        console.log('zitiDocumentAppendChild() newSRC: ', newSRC);
+        elem[0].src = newSRC;
+        console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
+      }
+    }
+
+  }
+}
+
+/**
+ * 
+ */
+ zitiDocumentSetAttribute = ( elem, args ) => {
+  // console.log('zitiDocumentSetAttribute(): ', elem, args);
+}
+
+
 if (!zitiConfig.serviceWorker.active) {
   window.fetch = zitiFetch;
   window.XMLHttpRequest = ZitiXMLHttpRequest;
   window.WebSocket = ZitiWebSocketWrapper;
+  
+  Element.prototype.insertBefore = function() {
+    zitiDocumentInsertBefore.call(this, arguments);
+    return window.realInsertBefore.apply(this, arguments);
+  };
+  Element.prototype.appendChild = function() {
+    zitiDocumentAppendChild.call(this, arguments);
+    return window.realAppendChild.apply(this, arguments);
+  };
+  Element.prototype.setAttribute = function() {
+    zitiDocumentSetAttribute.call(this, arguments);
+    return window.realSetAttribute.apply(this, arguments);
+  };
 }
 
 if (typeof window !== 'undefined') {
@@ -817,7 +1048,19 @@ if (typeof window !== 'undefined') {
     window.XMLHttpRequest = ZitiXMLHttpRequest;
     window.WebSocket = ZitiWebSocketWrapper;
 
-
+    Element.prototype.insertBefore = function() {
+      zitiDocumentInsertBefore.call(this, arguments);
+      return window.realInsertBefore.apply(this, arguments);
+    };
+    Element.prototype.appendChild = function() {
+      zitiDocumentAppendChild.call(this, arguments);
+      return window.realAppendChild.apply(this, arguments);
+    };
+    Element.prototype.setAttribute = function() {
+      zitiDocumentSetAttribute.call(this, arguments);
+      return window.realSetAttribute.apply(this, arguments);
+    };  
+    
     window.addEventListener('beforeunload', function (e) {
 
       if (!isUndefined(ziti._ctx)) {
@@ -896,26 +1139,30 @@ _internal_isIdentityPresent = async ( ) => {
 
     let identyPresent = false;
 
-    let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
 
-    if (isNull( apisess ) || isUndefined( apisess )) {
-      await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );
-      await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT );
-    }
-    else {
-      let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
-      if (!isNull( cert ) && !isUndefined( cert )) {
-        identyPresent = true;
-      } else {
-        // If cert expired, purge any session data we might have
-        await ls.removeItem( zitiConstants.get().ZITI_API_SESSION_TOKEN );
+    // await ziti._serviceWorkerMutexNoTimeout.runExclusive(async () => {  // enter critical-section
+
+      let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
+
+      if (isNull( apisess ) || isUndefined( apisess )) {
         await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );
-        // and also reset the channels
-        if (!isUndefined(ziti._ctx)) {
-          ziti._ctx.closeAllChannels();
+        await ls.removeItem( zitiConstants.get().ZITI_IDENTITY_CERT );
+      }
+      else {
+        let cert = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
+        if (!isNull( cert ) && !isUndefined( cert )) {
+          identyPresent = true;
+        } else {
+          // If cert expired, purge any session data we might have
+          await ls.removeItem( zitiConstants.get().ZITI_API_SESSION_TOKEN );
+          await ls.removeItem( zitiConstants.get().ZITI_NETWORK_SESSIONS );
+          // and also reset the channels
+          if (!isUndefined(ziti._ctx)) {
+            ziti._ctx.closeAllChannels();
+          }
         }
       }
-    }
+    // });
 
     return resolve(identyPresent);
     
@@ -973,7 +1220,7 @@ _onMessage_isIdentityPresent = async ( event ) => {
 
   _sendResponse( event, 'OK' ); // release the sw immediately
 
-  await ziti._serviceWorkerMutexNoTimeout.runExclusive(async () => {
+  await ziti._serviceWorkerMutexNoTimeout.runExclusive(async () => {  // enter critical-section
 
     if (isUndefined(ziti._ctx)) {
       let ctx = new ZitiContext(ZitiContext.prototype);
@@ -985,9 +1232,12 @@ _onMessage_isIdentityPresent = async ( event ) => {
     let apisess = await ls.getWithExpiry(zitiConstants.get().ZITI_API_SESSION_TOKEN);
     let cert    = await ls.getWithExpiry(zitiConstants.get().ZITI_IDENTITY_CERT);
 
-    ziti._ctx.logger.trace('_onMessage_promptForZitiCredsNoWait: cert is: %o', cert);
+    ziti._ctx.logger.debug('_onMessage_promptForZitiCredsNoWait: apisess is: %o, cert is: %o', apisess, cert);
 
     if ( isNull( apisess ) || isUndefined( apisess ) || isNull( cert ) || isUndefined( cert ) ) {
+
+      // Let sw know we do NOT have an identity
+      sendMessageToServiceworker( { command: 'identityLoaded', identityLoaded: 0 }  );
 
       let updb = new ZitiUPDB(ZitiUPDB.prototype);
 
@@ -1019,13 +1269,16 @@ _onMessage_isIdentityPresent = async ( event ) => {
         ziti._ctx.logger.error(err);
       });
 
+      // Let sw know we now have an identity
+      sendMessageToServiceworker( { command: 'identityLoaded', identityLoaded: 1 }  );
+
       // Trigger a page reload now that we have creds and keypair
       setTimeout(function() {
     
         ziti._ctx.logger.info('_onMessage_promptForZitiCredsNoWait: triggering page reload now');
         window.location.reload();
       
-      }, 100);
+      }, 500);
     }
   });
 }
@@ -1073,30 +1326,34 @@ _onMessage_nop = async ( event ) => {
 if (!zitiConfig.serviceWorker.active) {
   if ('serviceWorker' in navigator) {
 
-    /**
-     *  Service Worker registration
-     */
-    navigator.serviceWorker.register('ziti-sw.js', {scope: './'} ).then( function( reg ) {
+    if (isNull(navigator.serviceWorker.controller)) {
 
-        if (navigator.serviceWorker.controller) {
-            // If .controller is set, then this page is being actively controlled by our service worker.
-            console.log('The Ziti service worker is now registered.');
+      /**
+       *  Service Worker registration
+       */
+      navigator.serviceWorker.register('https://' + zitiConfig.httpAgent.self.host + '/ziti-sw.js', {scope: './'} ).then( function( reg ) {
 
-            // (function checkForUpdatedServiceWorker() {
-            //   console.log('checking for updated service worker.');
-            //   reg.update();
-            //   setTimeout( checkForUpdatedServiceWorker, 1000 * 60 * 30 );
-            // })();
+          if (navigator.serviceWorker.controller) {
+              // If .controller is set, then this page is being actively controlled by our service worker.
+              console.log('The Ziti service worker is now registered.');
 
-        } else {
-            // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
-            // control. Until that happens, the service worker's fetch handler won't be used.
-            // console.log('Please reload this page to allow the Ziti service worker to handle network operations.');
-        }
-    }).catch(function(error) {
-        // Something went wrong during registration.
-        console.error(error);
-    });
+              // (function checkForUpdatedServiceWorker() {
+              //   console.log('checking for updated service worker.');
+              //   reg.update();
+              //   setTimeout( checkForUpdatedServiceWorker, 1000 * 60 * 30 );
+              // })();
+
+          } else {
+              // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
+              // control. Until that happens, the service worker's fetch handler won't be used.
+              // console.log('Please reload this page to allow the Ziti service worker to handle network operations.');
+          }
+      }).catch(function(error) {
+          // Something went wrong during registration.
+          console.error(error);
+      });
+
+    }
 
 
     /**
@@ -1149,7 +1406,11 @@ async function sendMessageToServiceworker( message ) {
           }
       };
 
-      navigator.serviceWorker.controller.postMessage(message, [ messageChannel.port2 ]);
+      if (!isUndefined(navigator.serviceWorker)) {
+        if (!isUndefined(navigator.serviceWorker.controller)) {
+          navigator.serviceWorker.controller.postMessage(message, [ messageChannel.port2 ]);
+        }
+      }
   });
 }
 
