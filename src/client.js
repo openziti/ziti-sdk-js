@@ -976,17 +976,18 @@ zitiDocumentAppendChild = ( elem, args ) => {
 
         hit = (elem[0].outerHTML.match(redp) || []).length;
         if ((hit == 0)) { // ...and we haven't been here before
-
-          // Transform all occurances of the DOM Proxy hostname into a URL our sw can intercept
-          let replace = zitiConfig.httpAgent.self.host + '/ziti-dom-proxy/' + domHost;
-          try {
-	          let newSRC = elem[0].src.replace(re, replace);
-	          elem[0].src = newSRC;
-            console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
-            transformed = true;
-          }
-          catch (e) {
-            console.error(e);
+          if (!isUndefined(elem[0].src)) { // ...and there is a src attribute
+            // Transform all occurances of the DOM Proxy hostname into a URL our sw can intercept
+            let replace = zitiConfig.httpAgent.self.host + '/ziti-dom-proxy/' + domHost;
+            try {
+              let newSRC = elem[0].src.replace(re, replace);
+              elem[0].src = newSRC;
+              console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
+              transformed = true;
+            }
+            catch (e) {
+              console.error(e);
+            }
           }
         }
       }
@@ -1242,6 +1243,10 @@ _onMessage_isIdentityPresent = async ( event ) => {
       let updb = new ZitiUPDB(ZitiUPDB.prototype);
 
       await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+
+      // Do not proceed until we have a keypair
+      await updb.awaitKeypair();
+      ziti._ctx.logger.debug('_onMessage_promptForZitiCredsNoWait: awaitKeypair returned');      
 
       let haveCreds = await updb._haveCreds();
 

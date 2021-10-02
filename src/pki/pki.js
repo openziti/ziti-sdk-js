@@ -259,7 +259,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
  * @params  {nothing}   
  * @returns {nothing}   
  */
- ZitiPKI.prototype.awaitKeyPairGenerationComplete = async function() {
+ ZitiPKI.prototype.awaitKeyPairGenerationComplete = async function( bypassRenderingOfUI ) {
 
   let self = this;
 
@@ -274,26 +274,31 @@ ZitiPKI.prototype.generateKeyPair = async function() {
 
     if (typeof window !== 'undefined') {
 
-      identityModalCSS.inject();
-      keypairModalHTML.inject();
-      MicroModal.init({
-        onShow: modal => console.info(`${modal.id} is shown`), // [1]
-        onClose: modal => console.info(`${modal.id} is hidden`), // [2]
-        openTrigger: 'ziti-data-micromodal-trigger', // [3]
-        closeTrigger: 'data-custom-close', // [4]
-        openClass: 'is-open', // [5]
-        disableScroll: true, // [6]
-        disableFocus: false, // [7]
-        awaitOpenAnimation: false, // [8]
-        awaitCloseAnimation: true, // [9]
-        debugMode: false // [10]
-      });
-    
-      MicroModal.show('ziti-keypair-modal');
+      if (bypassRenderingOfUI) {
+        self.logger.info('bypassRenderingOfUI');
+      } else {
 
-      modalMsg.setMessage('Please do not close this browser window.');
+        identityModalCSS.inject();
+        keypairModalHTML.inject();
+        MicroModal.init({
+          onShow: modal => console.info(`${modal.id} is shown`), // [1]
+          onClose: modal => console.info(`${modal.id} is hidden`), // [2]
+          openTrigger: 'ziti-data-micromodal-trigger', // [3]
+          closeTrigger: 'data-custom-close', // [4]
+          openClass: 'is-open', // [5]
+          disableScroll: true, // [6]
+          disableFocus: false, // [7]
+          awaitOpenAnimation: false, // [8]
+          awaitCloseAnimation: true, // [9]
+          debugMode: false // [10]
+        });
+      
+        MicroModal.show('ziti-keypair-modal');
 
-      modalMsg.setProgress('Zero-Trust KeyPair creation in progress.');
+        modalMsg.setMessage('Please do not close this browser window.');
+
+        modalMsg.setProgress('Zero-Trust KeyPair creation in progress.');
+      }
     }
 
 

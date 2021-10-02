@@ -521,9 +521,9 @@ ZitiContext.prototype.init = async function(options) {
     });
 
     // Get Controller version info
-    let res = await self._controllerClient.listVersion();
-    self._controllerVersion = res.data;
-    self.logger.info('init Controller Version: [%o]', self._controllerVersion);
+    // let res = await self._controllerClient.listVersion();
+    // self._controllerVersion = res.data;
+    // self.logger.info('init Controller Version: [%o]', self._controllerVersion);
 
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 
@@ -601,9 +601,9 @@ ZitiContext.prototype.initFromServiceWorker = async function(options) {
     });
 
     // Get Controller version info
-    let res = await self._controllerClient.listVersion();
-    self._controllerVersion = res.data;
-    self.logger.info('initFromServiceWorker Controller Version: [%o]', self._controllerVersion);
+    // let res = await self._controllerClient.listVersion();
+    // self._controllerVersion = res.data;
+    // self.logger.info('initFromServiceWorker Controller Version: [%o]', self._controllerVersion);
 
     self._timeout = zitiConstants.get().ZITI_DEFAULT_TIMEOUT;
 

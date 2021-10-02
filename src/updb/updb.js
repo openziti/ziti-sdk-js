@@ -26,11 +26,13 @@ const consola               = require('consola');
 let MicroModal;
 let modalMsg;
 let identityModalLogin;
+let identityModalKeypairDirectory;
 let error;
 if (typeof window !== 'undefined') {
 MicroModal            = require('micromodal');
 modalMsg              = require('../ui/identity_modal/keypair_generation_msg');
 identityModalLogin    = require('./login');
+identityModalKeypairDirectory    = require('./keypairDirectory');
 error                 = require('./error');
 }
 
@@ -40,9 +42,11 @@ const defaultOptions        = require('./options');
 const zitiConstants         = require('../constants');
 let identityModalCSS;
 let updbModalHTML;
+let updbKeypairDirectoryModalHTML;
 if (typeof window !== 'undefined') {
 identityModalCSS      = require('../ui/identity_modal/css');
 updbModalHTML     = require('../ui/identity_modal/updb_prompt_html');
+updbKeypairDirectoryModalHTML     = require('../ui/identity_modal/updb_prompt_keypairDirectory_html');
 reloadingpageModalHTML = require('../ui/identity_modal/reloading_page_html');
 }
 
@@ -199,6 +203,56 @@ ZitiUPDB.prototype.promptForCreds = async function() {
 
 
 /**
+ * Prompt the user for a dir to save keypair into
+ * 
+ * @params  {nothing}   
+ * @returns {nothing}   
+ */
+ ZitiUPDB.prototype.promptForKeypairDirectory = async function() {
+
+  let self = this;
+
+  self.logger.info('Starting keypairDirectory Prompt');
+
+  if (typeof window !== 'undefined') {
+
+    if (!self.keypairDirectoryModalInjected) {
+      identityModalCSS.inject();
+      updbKeypairDirectoryModalHTML.inject();
+      self.keypairDirectoryModalInjected = true;
+    }
+
+    this._keypairPresent = undefined;
+    identityModalKeypairDirectory.injectButtonHandler( async function( results ) { 
+      self._keypairPresent = true;
+      self.logger.debug('keypairDirectory Form cb(): results [%o]', results);
+
+      MicroModal.close('ziti-updb-modal-keypairDirectory');
+      self.modalShown = false;
+  
+    });
+  
+    MicroModal.init({
+      onShow: modal => console.info(`${modal.id} is shown`), // [1]
+      onClose: modal => console.info(`${modal.id} is hidden`), // [2]
+      openTrigger: 'ziti-data-micromodal-trigger', // [3]
+      closeTrigger: 'data-custom-close', // [4]
+      openClass: 'is-open', // [5]
+      disableScroll: true, // [6]
+      disableFocus: false, // [7]
+      awaitOpenAnimation: false, // [8]
+      awaitCloseAnimation: true, // [9]
+      debugMode: false // [10]
+    });
+  
+    MicroModal.show('ziti-updb-modal-keypairDirectory');
+
+    self.modalShown = true;
+  }
+}
+
+
+/**
  * Display 'Reloading Page'
  * 
  * @params  {nothing}   
@@ -308,6 +362,35 @@ ZitiUPDB.prototype.awaitLoginFormComplete = async function() {
     self.closeLoginForm();
 
     resolve();
+
+  });
+}
+
+
+/**
+ * Return a Promise that will resolve as soon as we have acquired keypair dir location from the UI.
+ *
+ * @returns {Promise}   
+ */
+ ZitiUPDB.prototype.awaitKeypair = async function() {
+
+  this.logger.debug('ZitiUPDB.awaitKeypair() starting');
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    self._keypairPresent = undefined;
+  
+    self.promptForKeypairDirectory();
+
+    (function waitForKeypairDirectoryFormComplete() {
+      if (self._keypairPresent) {
+        return resolve();
+      }
+      self.logger.trace('ZitiUPDB.awaitLoginFormComplete() _keypairPresent still not true');
+      setTimeout(waitForKeypairDirectoryFormComplete, 500);
+    })();
 
   });
 }

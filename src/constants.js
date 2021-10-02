@@ -50,6 +50,14 @@ const ZITI_CONSTANTS =
     /**
      * The Identity public key (generated locally during enrollment)
      */
+    'ZITI_IDENTITY_KEYPAIR_DIRECTORY':      'ZITI_IDENTITY_KEYPAIR_DIRECTORY',
+    'ZITI_IDENTITY_PUBLIC_KEY_FILENAME':    'ZITI_BROWZER_PUBLIC_KEY.pem',
+    'ZITI_IDENTITY_PRIVATE_KEY_FILENAME':   'ZITI_IDENTITY_PRIVATE_KEY.pem',
+
+
+    /**
+     * The Identity public key (generated locally during enrollment)
+     */
     'ZITI_IDENTITY_PUBLIC_KEY':    'ZITI_IDENTITY_PUBLIC_KEY',
 
     /**
