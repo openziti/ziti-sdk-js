@@ -1,3 +1,12 @@
+## [0.14.1](https://github.com/openziti/ziti-sdk-js/compare/v0.14.0...v0.14.1) (2021-10-06)
+
+
+### Bug Fixes
+
+* correct a ws intercept issue ([#98](https://github.com/openziti/ziti-sdk-js/issues/98)) ([8d5bce0](https://github.com/openziti/ziti-sdk-js/commit/8d5bce0a57fbd7868a218db9b70f57a1d1debf95))
+
+
+
 # [0.14.0](https://github.com/openziti/ziti-sdk-js/compare/v0.13.0...v0.14.0) (2021-09-24)
 
 
