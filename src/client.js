@@ -980,10 +980,12 @@ zitiDocumentAppendChild = ( elem, args ) => {
           // Transform all occurances of the DOM Proxy hostname into a URL our sw can intercept
           let replace = zitiConfig.httpAgent.self.host + '/ziti-dom-proxy/' + domHost;
           try {
-	          let newSRC = elem[0].src.replace(re, replace);
-	          elem[0].src = newSRC;
-            console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
-            transformed = true;
+            if (!isUndefined(elem[0].src)) {
+              let newSRC = elem[0].src.replace(re, replace);
+              elem[0].src = newSRC;
+              console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
+              transformed = true;
+            }
           }
           catch (e) {
             console.error(e);
