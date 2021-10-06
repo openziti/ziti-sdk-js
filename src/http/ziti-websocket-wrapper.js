@@ -590,7 +590,7 @@ async function initAsClient(websocket, address, protocols, options) {
             opts.createConnection = zitiConnect;    // We're going over Ziti
 
             newUrl.protocol = "http:";
-            opts.href = newUrl.toString().toLowerCase();
+            opts.href = newUrl.protocol + '//' + newUrl.host.toLowerCase() + newUrl.pathname + newUrl.search;
             opts.origin = "http://" + (zitiConfig.httpAgent.target.host).toLowerCase();
             if (zitiConfig.httpAgent.target.port !== '80') {
               if (zitiConfig.httpAgent.target.port === '443') {
@@ -973,7 +973,14 @@ function sendAfterClose(websocket, data, cb) {
    * @private
    */
   function receiverOnMessage(data) {
-    this[kWebSocket].emit('message', data);
+    if (typeof data === 'string') {
+      ziti._ctx.logger.info('ZitiWebSocketWrapper.receiverOnMessage() entered, emitting STRING: %o', data);
+      this[kWebSocket].emit('message', data);
+    } else {
+      let blob = new Blob(data);
+      ziti._ctx.logger.info('ZitiWebSocketWrapper.receiverOnMessage() entered, emitting BLOB: %o', blob);
+      this[kWebSocket].emit('message', blob);
+    }
   }
   
   /**

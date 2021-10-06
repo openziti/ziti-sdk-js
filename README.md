@@ -8,7 +8,7 @@ A JavaScript-based SDK for delivering secure browser-based web applications over
 Learn about Ziti at [ziti.dev](https://ziti.dev)
 
 
-[![Build](https://github.com/openziti/ziti-sdk-js/workflows/Build/badge.svg?branch=master)]()
+[![Build](https://github.com/openziti/ziti-sdk-js/workflows/Build/badge.svg?branch=main)]()
 [![Issues](https://img.shields.io/github/issues-raw/openziti/ziti-sdk-js)]()
 [![Known Vulnerabilities](https://snyk.io/test/npm/@openziti/ziti-sdk-js/badge.svg)](https://snyk.io/test/npm/@openziti/ziti-sdk-js)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -17,6 +17,7 @@ Learn about Ziti at [ziti.dev](https://ziti.dev)
 [![LOC](https://img.shields.io/tokei/lines/github/openziti/ziti-sdk-js)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=rounded)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
+[![CodeSee](https://codesee-docs.s3.amazonaws.com/badge.svg)](https://app.codesee.io/maps/public/12213800-239c-11ec-8afb-0d2533b87e31)
 
 
 
