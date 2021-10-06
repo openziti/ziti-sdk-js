@@ -20,7 +20,6 @@ Learn about Ziti at [ziti.dev](https://ziti.dev)
 [![CodeSee](https://codesee-docs.s3.amazonaws.com/badge.svg)](https://app.codesee.io/maps/public/12213800-239c-11ec-8afb-0d2533b87e31)
 
 
-
 <!-- TOC -->
 
 - [Motivation](#motivation)
