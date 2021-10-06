@@ -976,18 +976,19 @@ zitiDocumentAppendChild = ( elem, args ) => {
 
         hit = (elem[0].outerHTML.match(redp) || []).length;
         if ((hit == 0)) { // ...and we haven't been here before
-          if (!isUndefined(elem[0].src)) { // ...and there is a src attribute
-            // Transform all occurances of the DOM Proxy hostname into a URL our sw can intercept
-            let replace = zitiConfig.httpAgent.self.host + '/ziti-dom-proxy/' + domHost;
-            try {
+
+          // Transform all occurances of the DOM Proxy hostname into a URL our sw can intercept
+          let replace = zitiConfig.httpAgent.self.host + '/ziti-dom-proxy/' + domHost;
+          try {
+            if (!isUndefined(elem[0].src)) {
               let newSRC = elem[0].src.replace(re, replace);
               elem[0].src = newSRC;
               console.log('zitiDocumentAppendChild() TRANSFORMED: ', elem[0].outerHTML);
               transformed = true;
             }
-            catch (e) {
-              console.error(e);
-            }
+          }
+          catch (e) {
+            console.error(e);
           }
         }
       }

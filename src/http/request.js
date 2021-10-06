@@ -269,11 +269,17 @@ HttpRequest.prototype.getRequestOptions = async function() {
 	// set the Cookie header
 	let cookieHeaderValue = '';
 	for (const cookie in cookieObject) {
-		if (cookieObject.hasOwnProperty(cookie)) {
-			cookieHeaderValue += cookie + '=' + cookieObject[cookie] + '; ';
+		if (cookie !== '') {
+			if (cookieObject.hasOwnProperty(cookie)) {
+				cookieHeaderValue += cookie + '=' + cookieObject[cookie] + '; ';
+			}
 		}
 	}
-	headers.set('Cookie', cookieHeaderValue);	
+	if (cookieHeaderValue !== '') {
+		headers.set('Cookie', cookieHeaderValue);
+	} else {
+		headers.delete('Cookie');
+	}
 
 	// HTTP-network-or-cache fetch steps 2.4-2.7
 	let contentLengthValue = null;
