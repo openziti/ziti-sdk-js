@@ -1,3 +1,12 @@
+# [0.14.0](https://github.com/openziti/ziti-sdk-js/compare/v0.13.0...v0.14.0) (2021-09-24)
+
+
+### Features
+
+* DOM intercept ([#97](https://github.com/openziti/ziti-sdk-js/issues/97)) ([1d14a10](https://github.com/openziti/ziti-sdk-js/commit/1d14a10a27b179528d568cc32d1edb64ba0f9e20))
+
+
+
 # [0.13.0](https://github.com/openziti/ziti-sdk-js/compare/v0.12.8...v0.13.0) (2021-08-11)
 
 
