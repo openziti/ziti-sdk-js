@@ -111,7 +111,7 @@ exports.baseSum = (array, iteratee) => {
  * // => 20
  */
 exports.sumBy = (array, iteratee) => {
-  return (array != null && array.length)
+  return (array !== null && array.length)
     ? exports.baseSum(array, iteratee)
     : 0
 }

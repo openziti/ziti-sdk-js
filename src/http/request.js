@@ -108,11 +108,11 @@ function HttpRequest(serviceNameOrConn, input, init = {}) {
 
 	method = method.toUpperCase();
 
-	if ((init.body != null || isRequest(input) && input.body !== null) && (method === 'GET' || method === 'HEAD')) {
+	if ((init.body !== null || isRequest(input) && input.body !== null) && (method === 'GET' || method === 'HEAD')) {
 		throw new Error('HttpRequest with GET/HEAD method cannot have body');
 	}
 
-	let inputBody = init.body != null ?
+	let inputBody = init.body !== null ?
 		init.body :
 		isRequest(input) && input.body !== null ?
 			clone(input) :
@@ -129,7 +129,7 @@ function HttpRequest(serviceNameOrConn, input, init = {}) {
 		inputBody = this.body;
 	}
 
-	if (inputBody != null && !headers.has('Content-Type')) {
+	if (inputBody !== null && !headers.has('Content-Type')) {
 		const contentType = this.extractContentType(inputBody);
 		if (contentType) {
 			headers.append('Content-Type', contentType);
@@ -283,10 +283,10 @@ HttpRequest.prototype.getRequestOptions = async function() {
 
 	// HTTP-network-or-cache fetch steps 2.4-2.7
 	let contentLengthValue = null;
-	if (this.body == null && /^(POST|PUT)$/i.test(this.getMethod())) {
+	if (this.body === null && /^(POST|PUT)$/i.test(this.getMethod())) {
 		contentLengthValue = '0';
 	}
-	if (this.body != null) {
+	if (this.body !== null) {
 		this.body.get
 		const totalBytes = this.getTotalBytes(this.body);
 		if (typeof totalBytes === 'number') {

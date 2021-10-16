@@ -98,7 +98,7 @@ function assertCrypto() {
 // Move the "slow cases" to a separate function to make sure this function gets
 // inlined properly. That prioritizes the common case.
 function normalizeEncoding(enc) {
-  if (enc == null || enc === 'utf8' || enc === 'utf-8') return 'utf8';
+  if (enc === null || enc === 'utf8' || enc === 'utf-8') return 'utf8';
   return slowCases(enc);
 }
 

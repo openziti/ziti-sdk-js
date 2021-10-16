@@ -35,7 +35,7 @@ exports.parse = (file) => {
   var chunkReaderBlock = null;
 
   var readEventHandler = function(evt) {
-      if (evt.target.error == null) {
+      if (evt.target.error === null) {
           offset += evt.target.result.length;
           receiveFileChunk(evt.target.result); // callback for handling read chunk
       } else {
