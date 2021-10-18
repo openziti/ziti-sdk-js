@@ -44,7 +44,7 @@ function HttpBody(body, init = {
 	timeout = 0
 } = {}) {
 
-	if (body == null) {
+	if (body === null) {
 		// body is undefined or null
 		body = null;
 	} else if (isURLSearchParams(body)) {

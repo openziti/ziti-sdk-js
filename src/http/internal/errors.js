@@ -197,7 +197,7 @@ class SystemError extends Error {
       // context as the user did.
       Object.defineProperty(this, 'path', {
         get() {
-          return context.path != null ?
+          return context.path !== null ?
             context.path.toString() : context.path;
         },
         set: (value) => {
@@ -212,7 +212,7 @@ class SystemError extends Error {
     if (context.dest !== undefined) {
       Object.defineProperty(this, 'dest', {
         get() {
-          return context.dest != null ?
+          return context.dest !== null ?
             context.dest.toString() : context.dest;
         },
         set: (value) => {
@@ -1057,7 +1057,7 @@ E('ERR_INVALID_ARG_TYPE',
       }
     }
 
-    if (actual == null) {
+    if (actual === null) {
       msg += `. Received ${actual}`;
     } else if (typeof actual === 'function' && actual.name) {
       msg += `. Received function ${actual.name}`;

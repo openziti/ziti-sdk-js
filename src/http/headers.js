@@ -150,11 +150,11 @@ function HttpHeaders(init = undefined) {
 
 	// We don't worry about converting prop to ByteString here as append()
 	// will handle it.
-	if (init == null) {
+	if (init === null) {
 		// no op
 	} else if (typeof init === 'object') {
 		const method = init[Symbol.iterator];
-		if (method != null) {
+		if (method !== null) {
 			if (typeof method !== 'function') {
 				throw new TypeError('Header pairs must be iterable');
 			}

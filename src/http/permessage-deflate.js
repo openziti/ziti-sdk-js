@@ -111,7 +111,7 @@ class PerMessageDeflate {
     }
     if (this._options.clientMaxWindowBits) {
       params.client_max_window_bits = this._options.clientMaxWindowBits;
-    } else if (this._options.clientMaxWindowBits == null) {
+    } else if (this._options.clientMaxWindowBits === null) {
       params.client_max_window_bits = true;
     }
 

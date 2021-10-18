@@ -49,7 +49,7 @@ function HttpResponse(body = null, opts = {}) {
 	const status = opts.status || 200;
 	const headers = new Headers(opts.headers)
 
-	if (body != null && !headers.has('Content-Type')) {
+	if (body !== null && !headers.has('Content-Type')) {
 		let contentType;
 		try {
 			contentType = extractContentType(body);
