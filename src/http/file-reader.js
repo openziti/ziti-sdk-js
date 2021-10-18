@@ -45,7 +45,7 @@ function ZitiFileReader( file ) {
 
     var readEventHandler = function( evt ) {
 
-        if (evt.target.error == null) {
+        if (evt.target.error === null) {
 
             self._offset += evt.target.result.byteLength;
             let buf = new Buffer.from( evt.target.result );

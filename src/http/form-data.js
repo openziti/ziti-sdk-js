@@ -156,7 +156,7 @@ ZitiFormData.prototype._trackLength = function(header, value, options) {
   // e.g. for streaming directly from a remote server,
   // w/ a known file a size, and not wanting to wait for
   // incoming file to finish to get its size.
-  if (options.knownLength != null) {
+  if (options.knownLength !== null) {
     valueLength += +options.knownLength;
   } else if (Buffer.isBuffer(value)) {
     valueLength = value.length;
@@ -267,7 +267,7 @@ ZitiFormData.prototype._multiPartHeader = function(field, value, options) {
     header = headers[prop];
 
     // skip nullish headers.
-    if (header == null) {
+    if (header === null) {
       continue;
     }
 

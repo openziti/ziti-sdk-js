@@ -1,3 +1,12 @@
+## [0.14.3](https://github.com/openziti/ziti-sdk-js/compare/v0.14.2...v0.14.3) (2021-10-18)
+
+
+### Bug Fixes
+
+* added type checking to null comparisons ([#100](https://github.com/openziti/ziti-sdk-js/issues/100)) ([95a55b0](https://github.com/openziti/ziti-sdk-js/commit/95a55b059fdf9bd0ed822fb424ec993f12cb5172))
+
+
+
 ## [0.14.2](https://github.com/openziti/ziti-sdk-js/compare/v0.14.1...v0.14.2) (2021-10-06)
 
 
