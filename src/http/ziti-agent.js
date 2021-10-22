@@ -36,7 +36,7 @@ module.exports = ZitiAgent;
 function ZitiAgent (opts) {
 
     if (!(this instanceof ZitiAgent)) return new ZitiAgent(opts);
-    if ('string' == typeof opts) opts = url.parse(opts);
+    if (typeof opts == 'string') opts = url.parse(opts);
     // Agent.call(this);
     this.proxy = opts;
     this.secure = this.proxy.protocol && this.proxy.protocol === 'https:';
