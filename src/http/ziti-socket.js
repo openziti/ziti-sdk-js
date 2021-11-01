@@ -89,7 +89,7 @@ class ZitiSocket extends EventEmitter {
                      * on_data callback
                      */
                     (data) => {
-                        // logger.info('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
+                        conn.getCtx().logger.trace('on_data callback: conn: %s, data: \n%s', this.connAsHex(this.zitiConnection), data.toString());
                         this.readableZitiStreamController.enqueue(data);
                     },
                 );
@@ -124,7 +124,11 @@ class ZitiSocket extends EventEmitter {
 
         conn.getCtx().logger.trace("captureResponseData() <- zitiSocket: [%o]", zitiSocket);
 
-        zitiSocket.emit('data', data);
+        if (data.byteLength > 0) {
+            zitiSocket.emit('data', data);
+        } else {
+            zitiSocket.emit('close', data);
+        }
     }
 
     /**
@@ -157,6 +161,7 @@ class ZitiSocket extends EventEmitter {
      * 
      */
     _read() { /* NOP */ }
+    read()  { /* NOP */ }
 
 
     /**
