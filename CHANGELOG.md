@@ -1,3 +1,12 @@
+## [0.14.4](https://github.com/openziti/ziti-sdk-js/compare/v0.14.3...v0.14.4) (2021-11-01)
+
+
+### Bug Fixes
+
+* intercept.v1 handling, and socket.close event ([#103](https://github.com/openziti/ziti-sdk-js/issues/103)) ([ead17af](https://github.com/openziti/ziti-sdk-js/commit/ead17af467b4149c0360b3a0f19f13d44179548c))
+
+
+
 ## [0.14.3](https://github.com/openziti/ziti-sdk-js/compare/v0.14.2...v0.14.3) (2021-10-18)
 
 
