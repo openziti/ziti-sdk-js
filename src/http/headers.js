@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+const isUndefined = require('lodash.isundefined');
+
 const invalidTokenRegex = /[^\^_`a-zA-Z\-0-9!#$%&'*+.|~]/;
 const invalidHeaderCharRegex = /[^\t\x20-\x7e\x80-\xff]/;
 
@@ -154,7 +156,7 @@ function HttpHeaders(init = undefined) {
 		// no op
 	} else if (typeof init === 'object') {
 		const method = init[Symbol.iterator];
-		if (method !== null) {
+		if (!isUndefined(method) && method !== null) {
 			if (typeof method !== 'function') {
 				throw new TypeError('Header pairs must be iterable');
 			}
