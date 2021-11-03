@@ -900,7 +900,7 @@ module.exports = class ZitiChannel {
     let contentType = contentTypeView[0];
 
     let sequenceView = new Int32Array(buffer, 8, 1);
-    this._ctx.logger.debug("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
+    this._ctx.logger.trace("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
 
     let responseSequence = sequenceView[0];
 
@@ -951,7 +951,7 @@ module.exports = class ZitiChannel {
 
         replyForView = new DataView( result.data.buffer.slice(result.data.byteOffset, result.data.byteLength + result.data.byteOffset) );
         responseSequence = replyForView.getInt32(0, true); // second parameter truethy == want little endian;
-        this._ctx.logger.debug("recv <- ReplyFor[%o]", responseSequence);
+        this._ctx.logger.trace("recv <- ReplyFor[%o]", responseSequence);
 
       } else {
 
@@ -960,13 +960,13 @@ module.exports = class ZitiChannel {
           let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
           replyForView = new Int32Array(result.data, 0, 1);
           responseSequence = replyForView[0];
-          this._ctx.logger.debug("recv <- Close Response For [%o]", responseSequence);  
+          this._ctx.logger.trace("recv <- Close Response For [%o]", responseSequence);  
   
         } else {
 
-          this._ctx.logger.debug("recv <- ReplyFor[%o]", 'n/a');  
+          this._ctx.logger.trace("recv <- ReplyFor[%o]", 'n/a');  
           responseSequence--;
-          this._ctx.logger.debug("reducing seq by 1 to [%o]", responseSequence);
+          this._ctx.logger.trace("reducing seq by 1 to [%o]", responseSequence);
 
         }
       }
@@ -995,6 +995,7 @@ module.exports = class ZitiChannel {
             this._ctx.logger.error("crypto_secretstream_xchacha20poly1305_pull failed. bodyLength[%d]", bodyLength);
           }
 
+          /* debug...
           try {
             let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
             let len = m1.length;
@@ -1005,18 +1006,21 @@ module.exports = class ZitiChannel {
 
             //
             let dbgStr = m1.substring(0, len);
-            this._ctx.logger.debug("recv <- data (first 2000): %s", dbgStr);
+            this._ctx.logger.trace("recv <- data (first 2000): %s", dbgStr);
 
-          } catch (e) { /* nop */ }
+          } catch (e) { // nop  }
+          */
 
           bodyView = unencrypted_data.message;
         } else {
+          /* debug...
           let len = bodyView.length;
           if (len > 2000) {
             len = 2000;
           }
           let dbgStr = String.fromCharCode.apply(null, bodyView).substring(0, len);
-          this._ctx.logger.trace("recv <- data (first 2000): %s", dbgStr);
+          this._ctx.logger.debug("recv <- data (first 2000): %s", dbgStr);
+          */
 
           //temp debugging
           // if (dbgStr.includes("var openMe = (window.parent")) {
