@@ -257,7 +257,9 @@ limitations under the License.
 	 }
   
 	 // Obtain all Cookie KV pairs from the Ziti Cookie cache
+	 const release = await ziti._cookiemutex.acquire();
 	 let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+	 release();
 	 if (!isNull(zitiCookies)) {
 		 for (const cookie in zitiCookies) {
 			 if (zitiCookies.hasOwnProperty(cookie)) {

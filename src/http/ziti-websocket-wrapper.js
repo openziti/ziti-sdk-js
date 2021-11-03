@@ -973,14 +973,14 @@ function sendAfterClose(websocket, data, cb) {
    * @private
    */
   function receiverOnMessage(data) {
-    if (typeof data === 'string') {
-      ziti._ctx.logger.info('ZitiWebSocketWrapper.receiverOnMessage() entered, emitting STRING: %o', data);
+    // if (typeof data === 'string') {
+      // ziti._ctx.logger.info('ZitiWebSocketWrapper.receiverOnMessage() entered, emitting STRING: %o', data);
       this[kWebSocket].emit('message', data);
-    } else {
-      let blob = new Blob(data);
-      ziti._ctx.logger.info('ZitiWebSocketWrapper.receiverOnMessage() entered, emitting BLOB: %o', blob);
-      this[kWebSocket].emit('message', blob);
-    }
+    // } else {
+      // let blob = new Blob([new Uint8Array(data, 0, data.byteLength)]);
+      // ziti._ctx.logger.info('ZitiWebSocketWrapper.receiverOnMessage() entered, emitting BLOB: %o', blob);
+      // this[kWebSocket].emit('message', blob);
+    // }
   }
   
   /**

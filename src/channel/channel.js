@@ -951,7 +951,7 @@ module.exports = class ZitiChannel {
 
         replyForView = new DataView( result.data.buffer.slice(result.data.byteOffset, result.data.byteLength + result.data.byteOffset) );
         responseSequence = replyForView.getInt32(0, true); // second parameter truethy == want little endian;
-        this._ctx.logger.trace("recv <- ReplyFor[%o]", responseSequence);
+        this._ctx.logger.debug("recv <- ReplyFor[%o]", responseSequence);
 
       } else {
 
@@ -960,13 +960,13 @@ module.exports = class ZitiChannel {
           let result = await this._messageGetBytesHeader(data, edge_protocol.header_id.SeqHeader);
           replyForView = new Int32Array(result.data, 0, 1);
           responseSequence = replyForView[0];
-          this._ctx.logger.trace("recv <- Close Response For [%o]", responseSequence);  
+          this._ctx.logger.debug("recv <- Close Response For [%o]", responseSequence);  
   
         } else {
 
-          this._ctx.logger.trace("recv <- ReplyFor[%o]", 'n/a');  
+          this._ctx.logger.debug("recv <- ReplyFor[%o]", 'n/a');  
           responseSequence--;
-          this._ctx.logger.trace("reducing seq by 1 to [%o]", responseSequence);
+          this._ctx.logger.debug("reducing seq by 1 to [%o]", responseSequence);
 
         }
       }
@@ -1002,6 +1002,11 @@ module.exports = class ZitiChannel {
               len = 2000;
             }
             this._ctx.logger.trace("recv <- unencrypted_data (first 2000): %s", m1.substring(0, len));
+
+            //
+            let dbgStr = m1.substring(0, len);
+            this._ctx.logger.debug("recv <- data (first 2000): %s", dbgStr);
+
           } catch (e) { /* nop */ }
 
           bodyView = unencrypted_data.message;

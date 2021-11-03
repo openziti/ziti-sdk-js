@@ -35,10 +35,12 @@ exports.inject = () => {
                         <h2 class="modal__title" id="modal-1-title">
                             <img src="https://ziti-logo.s3.amazonaws.com/ziti-logo_avatar.png" width=25 >
                             <span>
-                                Zero-Trust KeyPair Creation
+                                Zero-Trust KeyPair Generation
                             </span>
                         </h2>
                     </header>
+                    <h2 class="form-signin-heading">No KeyPair found in selected folder.<br/><br/>New KeyPair will be generated now.</h2>
+                    <span style="padding-top: 5px;">&nbsp;</span>
                     <div style="text-align: center; padding-top: 15px;">
                         <span id="ziti-keypair-error" style="color: #e80853; font-weight: 800; font-size: 0.9em;"></span> 
                     </div>    

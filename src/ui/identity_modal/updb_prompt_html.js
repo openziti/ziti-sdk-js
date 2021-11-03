@@ -45,9 +45,9 @@ exports.inject = () => {
                     </header>
 
                     <h2 class="form-signin-heading">Please Login</h2>
-                    <input id="ziti-login-username" type="text" class="form-control" name="username" placeholder="Username" required="do it 1" autofocus="" />
+                    <input id="ziti-login-username" type="text" class="form-control" name="username" placeholder="Ziti Username" required="do it 1" autofocus="" />
                     <span style="padding-top: 5px;">&nbsp;</span>
-                    <input id="ziti-login-password" type="password" class="form-control" style="padding-top: 5px;" name="password" placeholder="Password" required="do it 2"/>      
+                    <input id="ziti-login-password" type="password" class="form-control" style="padding-top: 5px;" name="password" placeholder="Ziti Password" required="do it 2"/>      
                     <button id="ziti-login-button" class="btn btn-lg btn-primary btn-block form-signin-button" type="submit">Authenticate</button>   
                 </form>
             </div>

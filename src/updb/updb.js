@@ -146,6 +146,29 @@ ZitiUPDB.prototype._haveCreds = async function() {
 
 }
 
+
+ZitiUPDB.prototype._haveKeypair = async function() {
+
+  let self = this;
+
+  return new Promise( async (resolve, reject) => {
+
+    // Obtain the keypair from IndexedDb
+    let publicKey  = await ls.get(zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY);
+    let privateKey = await ls.get(zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY);
+
+    if (
+      isNull( publicKey ) || isUndefined( publicKey ) ||
+      isNull( privateKey )  || isUndefined( privateKey )
+    ) {
+      resolve( false );
+    } else {
+      resolve( true );
+    }
+  });
+
+}
+
 /**
  * Prompt the user for their creds
  * 
@@ -208,24 +231,32 @@ ZitiUPDB.prototype.promptForCreds = async function() {
  * @params  {nothing}   
  * @returns {nothing}   
  */
- ZitiUPDB.prototype.promptForKeypairDirectory = async function() {
+ ZitiUPDB.prototype.promptForKeypairDirectory = async function( source ) {
 
   let self = this;
+  let text;
+  if (source === zitiConstants.get().ZITI_IDENTITY_KEYPAIR_OBTAIN_FROM_FS) {
+    text = 'Select Folder for Keypair storage.';
+  } else if (source === zitiConstants.get().ZITI_IDENTITY_KEYPAIR_OBTAIN_FROM_IDB) {
+    text = 'New KeyPair generation is complete.<br/><br/>Select Folder to write new Keypair into.';
+  } else {
+    text = 'huh?';
+  }
 
   self.logger.info('Starting keypairDirectory Prompt');
 
   if (typeof window !== 'undefined') {
 
-    if (!self.keypairDirectoryModalInjected) {
+    // if (!self.keypairDirectoryModalInjected) {
       identityModalCSS.inject();
-      updbKeypairDirectoryModalHTML.inject();
-      self.keypairDirectoryModalInjected = true;
-    }
+      updbKeypairDirectoryModalHTML.inject( text );
+      // self.keypairDirectoryModalInjected = true;
+    // }
 
     this._keypairPresent = undefined;
-    identityModalKeypairDirectory.injectButtonHandler( async function( results ) { 
-      self._keypairPresent = true;
-      self.logger.debug('keypairDirectory Form cb(): results [%o]', results);
+    identityModalKeypairDirectory.injectButtonHandler( self, source, async function( result ) { 
+      self._keypairPresent = result;
+      self.logger.debug('keypairDirectory Form cb(): results [%o]', self._keypairPresent);
 
       MicroModal.close('ziti-updb-modal-keypairDirectory');
       self.modalShown = false;
@@ -372,7 +403,7 @@ ZitiUPDB.prototype.awaitLoginFormComplete = async function() {
  *
  * @returns {Promise}   
  */
- ZitiUPDB.prototype.awaitKeypair = async function() {
+ ZitiUPDB.prototype.awaitKeypair = async function( source ) {
 
   this.logger.debug('ZitiUPDB.awaitKeypair() starting');
 
@@ -382,14 +413,23 @@ ZitiUPDB.prototype.awaitLoginFormComplete = async function() {
 
     self._keypairPresent = undefined;
   
-    self.promptForKeypairDirectory();
+    self.promptForKeypairDirectory( source );
 
     (function waitForKeypairDirectoryFormComplete() {
-      if (self._keypairPresent) {
-        return resolve();
+
+      if (self._keypairPresent == zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY_FILE_NOT_FOUND ) {
+        return resolve( zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY_FILE_NOT_FOUND );
       }
+      if (self._keypairPresent == zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY_FILE_NOT_FOUND ) {
+        return resolve( zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY_FILE_NOT_FOUND );
+      }
+      if (self._keypairPresent == zitiConstants.get().ZITI_IDENTITY_KEYPAIR_FOUND ) {
+        return resolve( zitiConstants.get().ZITI_IDENTITY_KEYPAIR_FOUND );
+      }
+
       self.logger.trace('ZitiUPDB.awaitLoginFormComplete() _keypairPresent still not true');
       setTimeout(waitForKeypairDirectoryFormComplete, 500);
+
     })();
 
   });

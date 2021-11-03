@@ -26,7 +26,7 @@ const isUndefined           = require('lodash.isundefined');
  *	Inject HTML needed for the Identity Modal.
  *
  */  
-exports.inject = () => {
+exports.inject = ( text ) => {
 
     let self = this;
 
@@ -34,19 +34,19 @@ exports.inject = () => {
   
         <div class="modal micromodal-slide" id="ziti-updb-modal-keypairDirectory" aria-hidden="true">
             <div class="wrapper">
-                <form class="form-signin" name="zitilogin" id="ziti-login-form">
+                <form class="form-signin" name="zitikeypair" id="ziti-keypair-form">
                     <header class="modal__header">
                         <h2 class="modal__title" id="modal-1-title">
                             <img src="https://ziti-logo.s3.amazonaws.com/ziti-logo_avatar.png" width=25 >
                             <span>
-                                Ziti KeyPair Persistence
+                                Zero-Trust KeyPair Selection
                             </span>
                         </h2>
                     </header>
 
-                    <h2 class="form-signin-heading">Select Directory for Keypair Storage</h2>
+                    <h2 class="form-signin-heading">${text}</h2>
                     <span style="padding-top: 5px;">&nbsp;</span>
-                    <button id="ziti-keypairDirectory-button" class="btn btn-lg btn-primary btn-block form-signin-button" type="submit">Select</button>   
+                    <button id="ziti-keypairDirectory-button" class="btn btn-lg btn-primary btn-block form-signin-button" type="submit">Select Folder</button>   
                 </form>
             </div>
 

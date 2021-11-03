@@ -306,7 +306,7 @@ ZitiPKI.prototype.generateKeyPair = async function() {
       let haveKeys = await self._haveKeypair();
       if (haveKeys) {
         MicroModal.close('ziti-keypair-modal');
-        return resolve();
+        return resolve(true);
       }
       setTimeout(waitForKeyPairGenerationComplete, 200);
     })();      

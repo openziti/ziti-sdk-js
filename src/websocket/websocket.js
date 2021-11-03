@@ -320,9 +320,9 @@ class ZitiWebSocket {
   }
 
   _handleMessage(event) {
-    this._ctx.logger.trace('zws: _handleMessage: event[%o]', event);
+    this._ctx.logger.debug('zws: _handleMessage: event[%o]', event);
     const data = this._options.extractMessageData(event);
-    this._ctx.logger.trace('zws: _handleMessage: recv <- data[%o]', data);
+    this._ctx.logger.debug('zws: _handleMessage: recv <- data[%o]', data);
     this._onMessage.dispatchAsync(data);
     this._tryUnpack(data);
   }

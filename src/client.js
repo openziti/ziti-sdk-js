@@ -77,6 +77,12 @@ class ZitiClient {
 
       CookieInterceptor.write.use( function ( cookie ) {
 
+        let name = cookie.substring(0, cookie.indexOf("="));
+        let value = cookie.substring(cookie.indexOf("=") + 1);
+        let cookie_value = value.substring(0, value.indexOf(";"));
+
+        sendMessageToServiceworker( { command: 'setCookie', name: name, value: cookie_value}  );
+
         (async function() { // we use an IIFE because we need to run some await calls, and we cannot make
                             // our write.use() an async func because it will then return a Promise,
                             // which would cause Cookie storage in the browser to get corrupted.
@@ -84,16 +90,12 @@ class ZitiClient {
           console.log('=====> CookieInterceptor sees write of Cookie: ', cookie);
 
           const release = await ziti._cookiemutex.acquire();
-  
           let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
           if (isNull(zitiCookies)) {
             zitiCookies = {}
           }
           // console.log('=====> CookieInterceptor ZITI_COOKIES (before): ', zitiCookies);
   
-          let name = cookie.substring(0, cookie.indexOf("="));
-          let value = cookie.substring(cookie.indexOf("=") + 1);
-          let cookie_value = value.substring(0, value.indexOf(";"));
           if (cookie_value !== ''){
             let parts = value.split(";");
             let cookiePath;
@@ -113,10 +115,10 @@ class ZitiClient {
             }
     
             zitiCookies[name] = cookie_value;
+       
+            await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
     
             // console.log('=====> CookieInterceptor ZITI_COOKIES (after): ', zitiCookies);
-    
-            await ls.setWithExpiry(zitiConstants.get().ZITI_COOKIES, zitiCookies, new Date(8640000000000000));
           }
   
           release();
@@ -348,8 +350,11 @@ class ZitiClient {
 
     return new Promise( async (resolve, reject) => {
 
-      console.log('js-sdk fetchFromServiceWorker() entered');
-
+    //   console.log('js-sdk fetchFromServiceWorker() entered', url);
+    //   for (var pair of opts.headers.entries()) {
+    //     console.log('js-sdk fetchFromServiceWorker() header ', pair[0]+ ': '+ pair[1]);
+    //  }
+     
       await ziti._serviceWorkerMutexWithTimeout.runExclusive(async () => {
 
         console.log('js-sdk fetchFromServiceWorker() acquired ziti._mutex');
@@ -688,6 +693,7 @@ zitiFetch = async ( url, opts ) => {
   // We only want to intercept fetch requests that target the Ziti HTTP Agent
   var regex = new RegExp( zitiConfig.httpAgent.self.host, 'g' );
   var regexSlash = new RegExp( /^\//, 'g' );
+  var regexDotSlash = new RegExp( /^\.\//, 'g' );
 
   if (url.match( regex )) { // the request is targeting the Ziti HTTP Agent
 
@@ -758,10 +764,49 @@ zitiFetch = async ( url, opts ) => {
     });
 
     let newUrl;
-    if (document.baseURI === zitiConfig.httpAgent.self.host) {
+    let baseURIUrl = new URL( document.baseURI );
+    if (baseURIUrl.hostname === zitiConfig.httpAgent.self.host) {
       newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + url );
     } else {
-      newUrl = new URL( document.baseURI + url );
+      let baseURI = document.baseURI.replace(/\.\/$/, '');
+      newUrl = new URL( baseURI + url );
+    }
+    ziti._ctx.logger.debug( 'zitiFetch: transformed URL: ', newUrl.toString());
+
+    serviceName = await ziti._ctx.shouldRouteOverZiti( newUrl );
+
+    if (isUndefined(serviceName)) { // If we have no serviceConfig associated with the hostname:port, do not intercept
+      ziti._ctx.logger.warn('zitiFetch(): no associated serviceConfig, bypassing intercept of [%s]', url);
+      return window.realFetch(url, opts);
+    }  
+
+    url = newUrl.toString();
+
+  } else if (url.match( regexDotSlash )) { // the request starts with a slash
+
+    await ziti._clientMutexNoTimeout.runExclusive(async () => {
+
+      let isExpired = await ziti._ctx.isIdentityCertExpired();
+
+      if (isExpired) {
+        let updb = new ZitiUPDB(ZitiUPDB.prototype);
+        await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+        await updb.awaitCredentialsAndAPISession();
+      }
+    })
+    .catch(( err ) => {
+      ziti._ctx.logger.error(err);
+      throw err;
+    });
+
+    let newUrl;
+    let baseURIUrl = new URL( document.baseURI );
+    if (baseURIUrl.hostname === zitiConfig.httpAgent.self.host) {
+      let slashUrl = url.replace('./', '/');
+      newUrl = new URL( 'https://' + zitiConfig.httpAgent.target.host + ':' + zitiConfig.httpAgent.target.port + slashUrl );
+    } else {
+      let baseURI = document.baseURI.replace(/\/$/, '');
+      newUrl = new URL( baseURI + url );
     }
     ziti._ctx.logger.debug( 'zitiFetch: transformed URL: ', newUrl.toString());
 
@@ -1113,7 +1158,7 @@ _onMessage_setControllerApi = async ( event ) => {
   pki.generateKeyPair();  // initiate keypair calculation
 }
 _onMessage_generateKeyPair = async ( event ) => {
-  _internal_generateKeyPair();
+  // _internal_generateKeyPair();
   _sendResponse( event, 'OK' );
 }
 
@@ -1245,9 +1290,35 @@ _onMessage_isIdentityPresent = async ( event ) => {
 
       await updb.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
 
-      // Do not proceed until we have a keypair
-      await updb.awaitKeypair();
-      ziti._ctx.logger.debug('_onMessage_promptForZitiCredsNoWait: awaitKeypair returned');      
+      let haveKeypair = await updb._haveKeypair();
+
+      if (!haveKeypair) {
+
+        let keypairPresent = await updb.awaitKeypair( zitiConstants.get().ZITI_IDENTITY_KEYPAIR_OBTAIN_FROM_FS );
+        ziti._ctx.logger.debug('_onMessage_promptForZitiCredsNoWait: awaitKeypair returned [%o]', keypairPresent);
+
+        if (keypairPresent == zitiConstants.get().ZITI_IDENTITY_PUBLIC_KEY_FILE_NOT_FOUND ||  keypairPresent ==  zitiConstants.get().ZITI_IDENTITY_PRIVATE_KEY_FILE_NOT_FOUND) {
+
+          // If keypair not in FS or IDB, then initiate keypair generation
+          _internal_generateKeyPair();
+
+          // Do not proceed until we have a keypair (this will render a dialog to the user informing them of status)
+          let pki = new ZitiPKI(ZitiPKI.prototype);
+          await pki.init( { ctx: ziti._ctx, logger: ziti._ctx.logger } );
+          await pki.awaitKeyPairGenerationComplete(); // await completion of keypair calculation
+  
+          keypairPresent = await updb.awaitKeypair( zitiConstants.get().ZITI_IDENTITY_KEYPAIR_OBTAIN_FROM_IDB );
+          ziti._ctx.logger.debug('_onMessage_promptForZitiCredsNoWait: awaitKeypair returned [%o]', keypairPresent);
+
+          if (keypairPresent !== zitiConstants.get().ZITI_IDENTITY_KEYPAIR_FOUND) {
+            throw new Error('should not happen');
+          } else {
+
+            ziti._ctx.logger.debug('_onMessage_promptForZitiCredsNoWait: now have the keypair we need, so proceeding to obtain creds');
+
+          }
+        }
+      }
 
       let haveCreds = await updb._haveCreds();
 
@@ -1324,6 +1395,21 @@ _onMessage_purgeCert = async ( event ) => {
 /**
  * 
  */
+ _onMessage_getCookies = async ( event ) => {
+  console.log('JS SDK _onMessage_getCookies entered');
+  // if (ziti._cookiemutex.isLocked()) {
+    // ziti._cookiemutex.waitForUnlock();
+  // }
+  // let zitiCookies = await ls.getWithExpiry(zitiConstants.get().ZITI_COOKIES);
+  // console.log('JS SDK _onMessage_getCookies returning: ', zitiCookies);
+  // _sendResponse( event, zitiCookies );
+  _sendResponse( event, 'nop OK' );
+}
+
+
+/**
+ * 
+ */
 _onMessage_nop = async ( event ) => {
   _sendResponse( event, 'nop OK' );
 }
@@ -1376,6 +1462,7 @@ if (!zitiConfig.serviceWorker.active) {
         else if (event.data.command === 'promptForZitiCreds')   { _onMessage_promptForZitiCreds( event ); }
         else if (event.data.command === 'promptForZitiCredsNoWait')   { _onMessage_promptForZitiCredsNoWait( event ); }
         else if (event.data.command === 'purgeCert')            { _onMessage_purgeCert( event ); }
+        else if (event.data.command === 'getCookies')           { _onMessage_getCookies( event ); }
         
         else if (event.data.command === 'nop')                  { _onMessage_nop( event ); }
 
@@ -1387,6 +1474,18 @@ if (!zitiConfig.serviceWorker.active) {
      * 
      */
     navigator.serviceWorker.startMessages();
+
+    // Kiosk mode?
+    if (window.opener) {
+      // wait for messages from opener
+      window.addEventListener( 'message', function( e ) {
+        this.window.kioskZitiUserName = e.data.username;
+        this.window.kioskZitiPassword = e.data.password;
+      });
+
+      // tell the opener we are waiting
+      window.opener.postMessage( 'inited', '*' );
+    }
 
       
   } else {
