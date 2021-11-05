@@ -995,7 +995,6 @@ module.exports = class ZitiChannel {
             this._ctx.logger.error("crypto_secretstream_xchacha20poly1305_pull failed. bodyLength[%d]", bodyLength);
           }
 
-          /* debug...
           try {
             let [m1, tag1] = [sodium.to_string(unencrypted_data.message), unencrypted_data.tag];
             let len = m1.length;
@@ -1008,8 +1007,7 @@ module.exports = class ZitiChannel {
             let dbgStr = m1.substring(0, len);
             this._ctx.logger.trace("recv <- data (first 2000): %s", dbgStr);
 
-          } catch (e) { // nop  }
-          */
+          } catch (e) {   }
 
           bodyView = unencrypted_data.message;
         } else {
