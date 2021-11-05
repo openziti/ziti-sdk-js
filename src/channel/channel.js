@@ -900,7 +900,7 @@ module.exports = class ZitiChannel {
     let contentType = contentTypeView[0];
 
     let sequenceView = new Int32Array(buffer, 8, 1);
-    this._ctx.logger.debug("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
+    this._ctx.logger.trace("recv <- contentType[%o] seq[%o]", contentType, sequenceView[0]);
 
     let responseSequence = sequenceView[0];
 
@@ -1002,16 +1002,23 @@ module.exports = class ZitiChannel {
               len = 2000;
             }
             this._ctx.logger.trace("recv <- unencrypted_data (first 2000): %s", m1.substring(0, len));
-          } catch (e) { /* nop */ }
+
+            //
+            let dbgStr = m1.substring(0, len);
+            this._ctx.logger.trace("recv <- data (first 2000): %s", dbgStr);
+
+          } catch (e) {   }
 
           bodyView = unencrypted_data.message;
         } else {
+          /* debug...
           let len = bodyView.length;
           if (len > 2000) {
             len = 2000;
           }
           let dbgStr = String.fromCharCode.apply(null, bodyView).substring(0, len);
-          this._ctx.logger.trace("recv <- data (first 2000): %s", dbgStr);
+          this._ctx.logger.debug("recv <- data (first 2000): %s", dbgStr);
+          */
 
           //temp debugging
           // if (dbgStr.includes("var openMe = (window.parent")) {
