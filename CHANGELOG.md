@@ -1,3 +1,12 @@
+# [0.15.0](https://github.com/openziti/ziti-sdk-js/compare/v0.14.4...v0.15.0) (2021-11-05)
+
+
+### Features
+
+* KeyPair Persist ([#104](https://github.com/openziti/ziti-sdk-js/issues/104)) ([1e25693](https://github.com/openziti/ziti-sdk-js/commit/1e25693b2ab95f173b924448ff02cdd7d2b31a61))
+
+
+
 ## [0.14.4](https://github.com/openziti/ziti-sdk-js/compare/v0.14.3...v0.14.4) (2021-11-01)
 
 
