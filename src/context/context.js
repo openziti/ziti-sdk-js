@@ -545,7 +545,7 @@ limitations under the License.
      self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
  
      self._mutex = new Mutex.Mutex();
-     self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
+     self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 30000);
  
      await self.loadAPISessionToken(self);
  
@@ -625,7 +625,7 @@ limitations under the License.
      self.logger.info('ZITI_IDENTITY_PASSWORD: [%o]', self._loginFormValues.password);
  
      self._mutex = new Mutex.Mutex();
-     self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
+     self._connectMutexWithTimeout = withTimeout(new Mutex.Mutex(), 30000);
  
      await self.loadAPISessionToken(self);
  

@@ -567,15 +567,13 @@ var zitiConfig = {
         // Make sure browser won't kill response with a CORS error
         res.headers['access-control-allow-origin'] = 'https://' + zitiConfig.httpAgent.self.host;
 
-        if (req.path === '/oauth/google/login') {
-          let location = res.headers.location;
-          if (!isUndefined(location)) {
-            location = location.replace(`redirect_uri=${zitiConfig.httpAgent.target.scheme}%`, `redirect_uri=https%`);            
-            let targetHost = `${zitiConfig.httpAgent.target.host}`;
-            targetHost = targetHost.toLowerCase();
-            location = location.replace(`${targetHost}`, `${zitiConfig.httpAgent.self.host}`);
-            res.headers.location = location;
-          }
+        let location = res.headers.location;
+        if (!isUndefined(location)) {
+          location = location.replace(`redirect_uri=${zitiConfig.httpAgent.target.scheme}%`, `redirect_uri=https%`);            
+          let targetHost = `${zitiConfig.httpAgent.target.host}`;
+          targetHost = targetHost.toLowerCase();
+          location = location.replace(`${targetHost}`, `${zitiConfig.httpAgent.self.host}`);
+          res.headers.location = location;
         }
 
         const response_options = {
@@ -647,10 +645,10 @@ const ziti = new ZitiClient();
 ziti.LogLevel = LogLevel;
 
 ziti._clientMutexNoTimeout = new Mutex.Mutex();
-ziti._clientMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
+ziti._clientMutexWithTimeout = withTimeout(new Mutex.Mutex(), 30000);
 
 ziti._serviceWorkerMutexNoTimeout = new Mutex.Mutex();
-ziti._serviceWorkerMutexWithTimeout = withTimeout(new Mutex.Mutex(), 5000);
+ziti._serviceWorkerMutexWithTimeout = withTimeout(new Mutex.Mutex(), 30000);
 
 ziti._cookiemutex = new Mutex.Mutex();
 
