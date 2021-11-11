@@ -1,3 +1,12 @@
+## [0.15.4](https://github.com/openziti/ziti-sdk-js/compare/v0.15.3...v0.15.4) (2021-11-11)
+
+
+### Bug Fixes
+
+* APEX: adjust mutex timeouts and redirect handling ([#106](https://github.com/openziti/ziti-sdk-js/issues/106)) ([ddb9544](https://github.com/openziti/ziti-sdk-js/commit/ddb9544beb2df175ddd6ca808f7812314381fb2d))
+
+
+
 ## [0.15.3](https://github.com/openziti/ziti-sdk-js/compare/v0.15.0...v0.15.3) (2021-11-05)
 
 
