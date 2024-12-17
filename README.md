@@ -1,3 +1,45 @@
+# 🚨 Ziti SDK for JavaScript - Archived and No Longer Maintained 🚨
+
+## ⚠️ Repository Status: **Defunct**
+This repository is no longer maintained or supported as of 2021-11-11. No further updates, bug fixes, or support will be provided for the Ziti SDK for JavaScript.
+
+---
+
+## Why Was This Archived?
+The Ziti SDK for JavaScript has been discontinued and will be replaced by a future `ziti-sdk-browser`.
+
+---
+
+## Recommendations
+If you are seeking alternatives or similar functionality, consider:
+
+- **[OpenZiti SDKs](https://github.com/openziti):** Explore other actively maintained SDKs within the OpenZiti ecosystem.
+- **[Alternative Project 1](https://example.com):** Short description of the alternative (if applicable).
+
+If you still find value in this repository, feel free to fork it and adapt it to your use case.
+
+---
+
+## Last Stable Release
+The last stable release is tagged as [vX.X.X](https://github.com/openziti/ziti-sdk-js/releases/tag/vX.X.X). You can access it in the [Releases section](https://github.com/openziti/ziti-sdk-js/releases).
+
+---
+
+## License
+This project remains licensed under the [Apache License 2.0](LICENSE). See the [LICENSE](LICENSE) file for more details.
+
+---
+
+Thank you to everyone who contributed to this project. Your support and collaboration have been greatly appreciated. 🎉
+
+---
+
+### Example Screenshot of Archive Status
+
+*Include a screenshot here showing the "This repository has been archived" banner from GitHub.*
+
+
+
 `ziti-sdk-js`
 =====================
 
