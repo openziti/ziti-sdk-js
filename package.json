@@ -83,7 +83,7 @@
     "@babel/runtime": "^7.14.0",
     "@types/lodash.isnull": "^3.0.6",
     "arraybuffer-to-string": "^1.0.2",
-    "asn1js": "^2.0.26",
+    "asn1js": "^2.4.0",
     "assert": "^2.0.0",
     "async-mutex": "^0.3.1",
     "asynckit": "^0.4.0",
