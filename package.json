@@ -62,7 +62,7 @@
     "@babel/plugin-transform-regenerator": "^7.13.15",
     "@babel/preset-env": "^7.14.2",
     "babelify": "^10.0.0",
-    "browserify": "^16.5.2",
+    "browserify": "^17.0.0",
     "cross-env": "^7.0.2",
     "elliptic": "^6.5.4",
     "karma": "^6.3.2",
