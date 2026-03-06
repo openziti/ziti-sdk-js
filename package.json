@@ -80,7 +80,7 @@
     "watchify": "^4.0.0"
   },
   "dependencies": {
-    "@babel/runtime": "^7.14.0",
+    "@babel/runtime": "^7.24.6",
     "@types/lodash.isnull": "^3.0.6",
     "arraybuffer-to-string": "^1.0.2",
     "asn1js": "^2.0.26",
