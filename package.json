@@ -121,7 +121,7 @@
     "micromodal": "^0.4.6",
     "multistream": "^4.1.0",
     "node-forge": "github:githoniel/forge",
-    "pkijs": "^2.1.90",
+    "pkijs": "^2.4.0",
     "promise-controller": "^1.0.0",
     "promise.prototype.finally": "^3.1.2",
     "q": "^1.5.1",
